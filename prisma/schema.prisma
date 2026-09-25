@@ -1,0 +1,287 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id             String        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name           String
+  email          String        @unique
+  emailVerified  DateTime?     @db.Timestamptz(6)
+  hashedPassword String?
+  image          String?
+  role           String        @default("USER")
+  pointBalance   Int           @default(0)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime      @default(now()) @updatedAt @db.Timestamptz(6)
+  accounts       Account[]
+  artist         Artist?
+  sessions       Session[]
+  transactions   Transaction[]
+  votes          Vote[]
+}
+
+model Account {
+  id                String  @id @default(dbgenerated("(gen_random_uuid())::text"))
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime @db.Timestamptz(6)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(6)
+
+  @@unique([identifier, token])
+}
+
+model Artist {
+  id           String             @id @default(dbgenerated("(gen_random_uuid())::text"))
+  userId       String             @unique
+  stageName    String
+  slug         String             @unique
+  biography    String?
+  profileImage String?
+  coverImage   String?
+  isActive     Boolean            @default(true)
+  isApproved   Boolean            @default(false)
+  createdAt    DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime           @default(now()) @updatedAt @db.Timestamptz(6)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  categories   ArtistCategory[]
+  invitation   ArtistInvitation?
+  musicLinks   ArtistMusicLink[]
+  socialLinks  ArtistSocialLink[]
+  statistics   ArtistStatistic[]
+  videoLinks   ArtistVideoLink[]
+  votes        Vote[]
+
+  @@index([slug])
+  @@index([userId])
+}
+
+model ArtistInvitation {
+  id             String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  artistId       String    @unique
+  email          String
+  token          String    @unique
+  activationCode String    @unique
+  expiresAt      DateTime  @db.Timestamptz(6)
+  isUsed         Boolean   @default(false)
+  usedAt         DateTime? @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  artist         Artist    @relation(fields: [artistId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  email     String
+  token     String   @unique
+  expiresAt DateTime @db.Timestamptz(6)
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([email])
+}
+
+model Category {
+  id          String           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name        String
+  slug        String           @unique
+  description String?
+  icon        String?
+  orderIndex  Int              @default(0)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
+  artists     ArtistCategory[]
+  votes       Vote[]
+
+  @@index([slug])
+}
+
+model ArtistCategory {
+  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  artistId   String
+  categoryId String
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  artist     Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([artistId, categoryId])
+  @@index([artistId])
+  @@index([categoryId])
+}
+
+model Competition {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name        String
+  description String?
+  startDate   DateTime @db.Timestamptz(6)
+  endDate     DateTime @db.Timestamptz(6)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  votes       Vote[]
+}
+
+model PointPackage {
+  id           String        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  name         String        @unique
+  points       Int
+  priceFc      Int
+  isActive     Boolean       @default(true)
+  orderIndex   Int           @default(0)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime      @default(now()) @updatedAt @db.Timestamptz(6)
+  transactions Transaction[]
+}
+
+model Transaction {
+  id            String       @id @default(dbgenerated("(gen_random_uuid())::text"))
+  userId        String
+  packageId     String
+  pointsAmount  Int
+  amountFc      Int
+  status        String       @default("PENDING")
+  paymentMethod String?
+  paymentRef    String?
+  createdAt     DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime     @default(now()) @updatedAt @db.Timestamptz(6)
+  package       PointPackage @relation(fields: [packageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user          User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  votes         Vote[]
+
+  @@index([status])
+  @@index([userId])
+}
+
+model Vote {
+  id            String       @id @default(dbgenerated("(gen_random_uuid())::text"))
+  userId        String
+  artistId      String
+  categoryId    String
+  competitionId String?
+  transactionId String?
+  points        Int
+  createdAt     DateTime     @default(now()) @db.Timestamptz(6)
+  artist        Artist       @relation(fields: [artistId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  category      Category     @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  competition   Competition? @relation(fields: [competitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user          User         @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([artistId])
+  @@index([categoryId])
+  @@index([competitionId])
+  @@index([userId])
+}
+
+model ArtistSocialLink {
+  id       String @id @default(dbgenerated("(gen_random_uuid())::text"))
+  artistId String
+  platform String
+  url      String
+  artist   Artist @relation(fields: [artistId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model ArtistMusicLink {
+  id       String  @id @default(dbgenerated("(gen_random_uuid())::text"))
+  artistId String
+  platform String
+  url      String
+  title    String?
+  artist   Artist  @relation(fields: [artistId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model ArtistVideoLink {
+  id        String  @id @default(dbgenerated("(gen_random_uuid())::text"))
+  artistId  String
+  platform  String
+  url       String
+  title     String?
+  thumbnail String?
+  isExcerpt Boolean @default(false)
+  artist    Artist  @relation(fields: [artistId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model ArtistStatistic {
+  id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  artistId    String
+  categoryId  String?
+  date        DateTime @db.Timestamptz(6)
+  totalPoints Int      @default(0)
+  totalVotes  Int      @default(0)
+  totalVoters Int      @default(0)
+  rank        Int?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  artist      Artist   @relation(fields: [artistId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([artistId, categoryId, date])
+}
+
+model Withdrawal {
+  id              String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  amountFc        Int
+  provider        String    // MPESA, ORANGE_MONEY, MANUAL
+  destination     String    // Numéro de téléphone ou compte destinataire
+  destinationName String?   // Nom du bénéficiaire
+  status          String    @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED, CANCELLED
+  reference       String    @unique // Ex: GA-WD-20260925-ABCD
+  idempotencyKey  String?   @unique
+  note            String?
+  requestedBy     String    // Nom ou email de l'administrateur demandeur
+  processedBy     String?   // Nom ou email de l'administrateur ayant traité
+  requestedAt     DateTime  @default(now()) @db.Timestamptz(6)
+  processedAt     DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([status])
+  @@index([provider])
+  @@index([createdAt])
+}
+
+model FinancialAuditLog {
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  action    String   // WITHDRAWAL_CREATED, WITHDRAWAL_PROCESSED, WITHDRAWAL_COMPLETED, WITHDRAWAL_CANCELLED
+  actorId   String   // Identifiant de l'admin
+  actorName String?  // Nom ou email de l'admin
+  amountFc  Int?
+  reference String?
+  oldValue  String?
+  newValue  String?
+  note      String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([action])
+  @@index([createdAt])
+}
+

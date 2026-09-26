@@ -4,10 +4,6 @@
  * Utilise SUPABASE_SERVICE_ROLE_KEY strictement côté serveur pour les uploads administratifs/artistes authentifiés.
  */
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-const BUCKET_NAME = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'artists-media'
-
 export interface UploadResult {
   success: boolean
   url?: string
@@ -27,21 +23,25 @@ export async function uploadToSupabaseStorage(
   fileBuffer: Buffer | Uint8Array,
   contentType: string
 ): Promise<UploadResult> {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'artists-media'
+
+  if (!supabaseUrl || !supabaseServiceKey) {
     return {
       success: false,
       error: 'Configuration Supabase Storage manquante côté serveur (NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY).',
     }
   }
 
-  const endpoint = `${SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${BUCKET_NAME}/${filePath.replace(/^\/+/, '')}`
+  const endpoint = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/${bucketName}/${filePath.replace(/^\/+/, '')}`
 
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-        apikey: SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${supabaseServiceKey}`,
+        apikey: supabaseServiceKey,
         'Content-Type': contentType,
         'x-upsert': 'true',
       },
@@ -58,7 +58,7 @@ export async function uploadToSupabaseStorage(
     }
 
     // Construction de l'URL publique de l'image
-    const publicUrl = `${SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/public/${BUCKET_NAME}/${filePath.replace(/^\/+/, '')}`
+    const publicUrl = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/public/${bucketName}/${filePath.replace(/^\/+/, '')}`
 
     return {
       success: true,
@@ -77,7 +77,11 @@ export async function uploadToSupabaseStorage(
  * Suppression d'un fichier du bucket Supabase Storage
  */
 export async function deleteFromSupabaseStorage(filePath: string): Promise<DeleteResult> {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+  const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'artists-media'
+
+  if (!supabaseUrl || !supabaseServiceKey) {
     return {
       success: false,
       error: 'Configuration Supabase Storage manquante côté serveur.',
@@ -86,7 +90,7 @@ export async function deleteFromSupabaseStorage(filePath: string): Promise<Delet
 
   // Si l'argument est une URL complète, extraire le chemin relatif dans le bucket
   let relativePath = filePath
-  const publicPrefix = `/storage/v1/object/public/${BUCKET_NAME}/`
+  const publicPrefix = `/storage/v1/object/public/${bucketName}/`
   if (filePath.includes(publicPrefix)) {
     relativePath = filePath.split(publicPrefix)[1]
   }
@@ -95,14 +99,14 @@ export async function deleteFromSupabaseStorage(filePath: string): Promise<Delet
     return { success: true }
   }
 
-  const endpoint = `${SUPABASE_URL.replace(/\/+$/, '')}/storage/v1/object/${BUCKET_NAME}`
+  const endpoint = `${supabaseUrl.replace(/\/+$/, '')}/storage/v1/object/${bucketName}`
 
   try {
     const response = await fetch(endpoint, {
       method: 'DELETE',
       headers: {
-        Authorization: `Bearer ${SUPABASE_SERVICE_KEY}`,
-        apikey: SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${supabaseServiceKey}`,
+        apikey: supabaseServiceKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({

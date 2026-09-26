@@ -140,7 +140,7 @@ export default function ArtistImageUploader({
           {isPending && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-gold z-10">
               <div className="w-6 h-6 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-              <span className="text-[11px] font-bold">Envoi vers Supabase...</span>
+              <span className="text-[11px] font-bold">Téléversement en cours...</span>
             </div>
           )}
         </div>

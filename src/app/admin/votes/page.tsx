@@ -16,19 +16,18 @@ const adminMenuItems = [
 ]
 
 export default async function AdminVotesPage() {
-  const [session, votes] = await Promise.all([
-    auth(),
-    prisma.vote.findMany({
-      include: {
-        user: { select: { name: true, email: true } },
-        artist: { select: { stageName: true } },
-        category: { select: { name: true, icon: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    }),
-  ])
+  const session = await auth()
   if (!session?.user || (session.user as any).role !== 'ADMIN') redirect('/connexion')
+
+  const votes = await prisma.vote.findMany({
+    include: {
+      user: { select: { name: true, email: true } },
+      artist: { select: { stageName: true } },
+      category: { select: { name: true, icon: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
 
   return (
     <div className="min-h-screen bg-[#060912] flex">

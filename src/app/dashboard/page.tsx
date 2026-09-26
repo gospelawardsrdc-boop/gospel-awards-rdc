@@ -17,26 +17,26 @@ export default async function DashboardPage() {
   if (role === 'ADMIN') redirect('/admin')
   if (role === 'ARTIST') redirect('/artiste')
 
-  const [user, recentVotes, totalVotes, totalPointsSpent] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { pointBalance: true, name: true, email: true },
-    }),
-    prisma.vote.findMany({
-      where: { userId },
-      include: {
-        artist: { select: { stageName: true, slug: true, profileImage: true } },
-        category: { select: { name: true, slug: true, icon: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
-    }),
-    prisma.vote.count({ where: { userId } }),
-    prisma.vote.aggregate({
-      where: { userId },
-      _sum: { points: true },
-    }),
-  ])
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { pointBalance: true, name: true, email: true },
+  })
+
+  const recentVotes = await prisma.vote.findMany({
+    where: { userId },
+    include: {
+      artist: { select: { stageName: true, slug: true, profileImage: true } },
+      category: { select: { name: true, slug: true, icon: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  })
+
+  const totalVotes = await prisma.vote.count({ where: { userId } })
+  const totalPointsSpent = await prisma.vote.aggregate({
+    where: { userId },
+    _sum: { points: true },
+  })
 
   return (
     <div className="min-h-screen bg-[#060912] flex flex-col justify-between">

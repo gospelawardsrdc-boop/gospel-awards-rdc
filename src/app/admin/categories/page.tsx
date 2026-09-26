@@ -37,20 +37,19 @@ async function toggleCategory(formData: FormData) {
 }
 
 export default async function AdminCategoriesPage() {
-  const [session, categories] = await Promise.all([
-    auth(),
-    prisma.category.findMany({
-      orderBy: { orderIndex: 'asc' },
-      include: {
-        artists: {
-          where: { artist: { isActive: true, isApproved: true } },
-          select: { id: true },
-        },
-        _count: { select: { votes: true } },
-      },
-    }),
-  ])
+  const session = await auth()
   if (!session?.user || (session.user as any).role !== 'ADMIN') redirect('/connexion')
+
+  const categories = await prisma.category.findMany({
+    orderBy: { orderIndex: 'asc' },
+    include: {
+      artists: {
+        where: { artist: { isActive: true, isApproved: true } },
+        select: { id: true },
+      },
+      _count: { select: { votes: true } },
+    },
+  })
 
   return (
     <div className="min-h-screen bg-[#060912] flex">

@@ -7,22 +7,20 @@ import Footer from '@/components/layout/Footer'
 import { formatPoints, getRankEmoji } from '@/lib/utils'
 
 async function getHomeData() {
-  const [categories, topArtists, competition] = await Promise.all([
-    prisma.category.findMany({
-      where: { isActive: true },
-      orderBy: { orderIndex: 'asc' },
-      include: { _count: { select: { artists: true } } },
-    }),
-    prisma.artist.findMany({
-      where: { isActive: true, isApproved: true },
-      include: {
-        categories: { include: { category: true } },
-        votes: true,
-      },
-      take: 6,
-    }),
-    prisma.competition.findFirst({ where: { isActive: true } }),
-  ])
+  const categories = await prisma.category.findMany({
+    where: { isActive: true },
+    orderBy: { orderIndex: 'asc' },
+    include: { _count: { select: { artists: true } } },
+  })
+
+  const topArtists = await prisma.artist.findMany({
+    where: { isActive: true, isApproved: true },
+    include: {
+      categories: { include: { category: true } },
+      votes: true,
+    },
+    take: 6,
+  })
 
   const artistsWithPoints = topArtists
     .map((artist) => ({
@@ -33,14 +31,14 @@ async function getHomeData() {
     }))
     .sort((a, b) => b.totalPoints - a.totalPoints)
 
+  const competition = await prisma.competition.findFirst({ where: { isActive: true } })
+
   return { categories, topArtists: artistsWithPoints, competition }
 }
 
 export default async function HomePage() {
-  const [session, { categories, topArtists, competition }] = await Promise.all([
-    auth(),
-    getHomeData(),
-  ])
+  const session = await auth()
+  const { categories, topArtists, competition } = await getHomeData()
   const user = session?.user ? { name: session.user.name!, role: (session.user as any).role } : null
 
   return (

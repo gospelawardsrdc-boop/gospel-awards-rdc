@@ -5,21 +5,20 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 
 export default async function CategoriesPage() {
-  const [session, categories] = await Promise.all([
-    auth(),
-    prisma.category.findMany({
-      where: { isActive: true },
-      orderBy: { orderIndex: 'asc' },
-      include: {
-        artists: {
-          where: { artist: { isActive: true, isApproved: true } },
-          select: { id: true },
-        },
-        _count: { select: { votes: true } },
-      },
-    }),
-  ])
+  const session = await auth()
   const user = session?.user ? { name: session.user.name!, role: (session.user as any).role } : null
+
+  const categories = await prisma.category.findMany({
+    where: { isActive: true },
+    orderBy: { orderIndex: 'asc' },
+    include: {
+      artists: {
+        where: { artist: { isActive: true, isApproved: true } },
+        select: { id: true },
+      },
+      _count: { select: { votes: true } },
+    },
+  })
 
   const categoryImages = [
     'from-yellow-900/25 to-amber-900/10',

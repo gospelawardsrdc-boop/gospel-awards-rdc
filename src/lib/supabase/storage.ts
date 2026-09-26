@@ -27,6 +27,13 @@ export async function uploadToSupabaseStorage(
   const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
   const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'artists-media'
 
+  // Diagnostic Runtime Strict (Booléens uniquement, aucune valeur secrète logguée)
+  console.log('[SUPABASE_STORAGE_DIAGNOSTIC]', {
+    SUPABASE_URL_PRESENT: Boolean(supabaseUrl && supabaseUrl.trim().length > 0),
+    SERVICE_ROLE_KEY_PRESENT: Boolean(supabaseServiceKey && supabaseServiceKey.trim().length > 0),
+    STORAGE_BUCKET_PRESENT: Boolean(bucketName && bucketName.trim().length > 0),
+  })
+
   if (!supabaseUrl || !supabaseServiceKey) {
     return {
       success: false,

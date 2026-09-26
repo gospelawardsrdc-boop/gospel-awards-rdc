@@ -9,6 +9,7 @@ import {
   addCategoryToArtistAction,
   removeCategoryFromArtistAction,
 } from '@/actions/admin-artist'
+import ArtistImageUploader from '@/components/artist/ArtistImageUploader'
 
 interface Category {
   id: string
@@ -320,26 +321,13 @@ export default function AdminArtistesClient({ artists, categories }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-3.5 rounded-xl bg-gold/[0.04] border border-gold/15 text-xs text-gray-300 flex items-start gap-2.5">
+            <span className="text-base leading-none">🖼️</span>
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-                URL Photo de Profil
-              </label>
-              <input
-                name="profileImage"
-                placeholder="https://images.unsplash.com/..."
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-                URL Image de Couverture
-              </label>
-              <input
-                name="coverImage"
-                placeholder="https://images.unsplash.com/..."
-                className="input-field"
-              />
+              <p className="font-semibold text-gold mb-0.5">Photos & Médias de l&apos;artiste</p>
+              <p className="text-[11px] text-gray-400">
+                Les photos de profil et de couverture (JPG, PNG, WebP — max 5 Mo) peuvent être importées directement depuis votre appareil via le bouton « ✏️ Modifier » dès la création de l&apos;artiste, ou téléversées directement par l&apos;artiste lors de l&apos;activation de son compte.
+              </p>
             </div>
           </div>
 
@@ -406,6 +394,8 @@ export default function AdminArtistesClient({ artists, categories }: Props) {
 
             <form onSubmit={handleUpdateArtist} className="space-y-4 text-xs">
               <input type="hidden" name="artistId" value={editingArtist.id} />
+              <input type="hidden" name="profileImage" value={editingArtist.profileImage || ''} />
+              <input type="hidden" name="coverImage" value={editingArtist.coverImage || ''} />
 
               <div>
                 <label className="block font-bold uppercase tracking-wider text-gray-300 mb-1">
@@ -419,25 +409,26 @@ export default function AdminArtistesClient({ artists, categories }: Props) {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-bold uppercase tracking-wider text-gray-300 mb-1">
-                    URL Photo de Profil
-                  </label>
-                  <input
-                    name="profileImage"
-                    defaultValue={editingArtist.profileImage || ''}
-                    className="input-field"
+              <div>
+                <label className="block font-bold uppercase tracking-wider text-gray-300 mb-2">
+                  Photos & Médias de l&apos;Artiste
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <ArtistImageUploader
+                    type="profile"
+                    initialImageUrl={editingArtist.profileImage}
+                    artistId={editingArtist.id}
+                    onImageUpdated={(newUrl) => {
+                      setEditingArtist((prev) => (prev ? { ...prev, profileImage: newUrl } : null))
+                    }}
                   />
-                </div>
-                <div>
-                  <label className="block font-bold uppercase tracking-wider text-gray-300 mb-1">
-                    URL Image de Couverture
-                  </label>
-                  <input
-                    name="coverImage"
-                    defaultValue={editingArtist.coverImage || ''}
-                    className="input-field"
+                  <ArtistImageUploader
+                    type="cover"
+                    initialImageUrl={editingArtist.coverImage}
+                    artistId={editingArtist.id}
+                    onImageUpdated={(newUrl) => {
+                      setEditingArtist((prev) => (prev ? { ...prev, coverImage: newUrl } : null))
+                    }}
                   />
                 </div>
               </div>

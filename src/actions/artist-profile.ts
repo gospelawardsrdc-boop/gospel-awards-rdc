@@ -104,6 +104,7 @@ export async function uploadArtistImageAction(formData: FormData) {
     // Revalidation Next.js
     try {
       revalidatePath('/artiste')
+      revalidatePath('/admin/artistes')
       revalidatePath(`/artistes/${artist.slug}`)
       revalidatePath('/')
       revalidatePath('/classements')
@@ -170,6 +171,7 @@ export async function deleteArtistImageAction(type: 'profile' | 'cover', targetA
     // Revalidation
     try {
       revalidatePath('/artiste')
+      revalidatePath('/admin/artistes')
       revalidatePath(`/artistes/${artist.slug}`)
       revalidatePath('/')
       revalidatePath('/classements')

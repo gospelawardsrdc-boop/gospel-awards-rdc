@@ -6,10 +6,8 @@ import Footer from '@/components/layout/Footer'
 import { formatPoints, getRankEmoji } from '@/lib/utils'
 
 export default async function ClassementsPage() {
-  const session = await auth()
-  const user = session?.user ? { name: session.user.name!, role: (session.user as any).role } : null
-
-  const [categories, allVotes] = await Promise.all([
+  const [session, categories, allVotes] = await Promise.all([
+    auth(),
     prisma.category.findMany({
       where: { isActive: true },
       orderBy: { orderIndex: 'asc' },
@@ -28,6 +26,7 @@ export default async function ClassementsPage() {
       },
     }),
   ])
+  const user = session?.user ? { name: session.user.name!, role: (session.user as any).role } : null
 
   // Aggregate points and votes in-memory: (categoryId:artistId) => { totalPoints, totalVotes }
   const voteAggMap = new Map<string, { totalPoints: number; totalVotes: number }>()

@@ -61,13 +61,14 @@ async function togglePackage(formData: FormData) {
 }
 
 export default async function AdminPointsPage() {
-  const session = await auth()
+  const [session, packages] = await Promise.all([
+    auth(),
+    prisma.pointPackage.findMany({
+      orderBy: { orderIndex: 'asc' },
+      include: { _count: { select: { transactions: true } } },
+    }),
+  ])
   if (!session?.user || (session.user as any).role !== 'ADMIN') redirect('/connexion')
-
-  const packages = await prisma.pointPackage.findMany({
-    orderBy: { orderIndex: 'asc' },
-    include: { _count: { select: { transactions: true } } },
-  })
 
   return (
     <div className="min-h-screen bg-[#060912] flex">

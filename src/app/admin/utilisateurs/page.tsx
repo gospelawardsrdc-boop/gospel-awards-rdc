@@ -16,16 +16,17 @@ const adminMenuItems = [
 ]
 
 export default async function AdminUtilisateursPage() {
-  const session = await auth()
+  const [session, users] = await Promise.all([
+    auth(),
+    prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { votes: true, transactions: true } },
+        artist: { select: { stageName: true, isApproved: true } },
+      },
+    }),
+  ])
   if (!session?.user || (session.user as any).role !== 'ADMIN') redirect('/connexion')
-
-  const users = await prisma.user.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      _count: { select: { votes: true, transactions: true } },
-      artist: { select: { stageName: true, isApproved: true } },
-    },
-  })
 
   return (
     <div className="min-h-screen bg-[#060912] flex">

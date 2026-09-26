@@ -16,34 +16,38 @@ export default async function VoterPage({ searchParams }: Props) {
   const { artist: preselectedArtist, category: preselectedCategory } = await searchParams
   const userId = (session.user as any).id
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { pointBalance: true, name: true },
-  })
-
-  const artistProfile = await prisma.artist.findUnique({
-    where: { userId },
-    select: { id: true },
-  })
-  const currentArtistId = artistProfile?.id || null
-
-  const categories = await prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { orderIndex: 'asc' },
-    include: {
-      artists: {
-        where: { artist: { isActive: true, isApproved: true } },
-        include: {
-          artist: true,
+  const [user, artistProfile, categories, categoryVotes, pointPackages] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { pointBalance: true, name: true },
+    }),
+    prisma.artist.findUnique({
+      where: { userId },
+      select: { id: true },
+    }),
+    prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { orderIndex: 'asc' },
+      include: {
+        artists: {
+          where: { artist: { isActive: true, isApproved: true } },
+          include: {
+            artist: true,
+          },
         },
       },
-    },
-  })
+    }),
+    prisma.vote.groupBy({
+      by: ['categoryId', 'artistId'],
+      _sum: { points: true },
+    }),
+    prisma.pointPackage.findMany({
+      where: { isActive: true },
+      orderBy: { orderIndex: 'asc' },
+    }),
+  ])
 
-  const categoryVotes = await prisma.vote.groupBy({
-    by: ['categoryId', 'artistId'],
-    _sum: { points: true },
-  })
+  const currentArtistId = artistProfile?.id || null
 
   const categoryVoteMap = new Map<string, number>()
   for (const v of categoryVotes) {
@@ -66,11 +70,6 @@ export default async function VoterPage({ searchParams }: Props) {
       },
     })),
   }))
-
-  const pointPackages = await prisma.pointPackage.findMany({
-    where: { isActive: true },
-    orderBy: { orderIndex: 'asc' },
-  })
 
   return (
     <div className="min-h-screen bg-[#060912] flex flex-col justify-between">

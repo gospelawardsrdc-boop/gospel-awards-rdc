@@ -23,6 +23,7 @@ export default function Header({ user }: HeaderProps) {
   const navLinks = [
     { href: '/', label: 'Accueil' },
     { href: '/categories', label: 'Catégories' },
+    { href: '/artistes', label: 'Artistes' },
     { href: '/classements', label: 'Classements' },
   ]
 

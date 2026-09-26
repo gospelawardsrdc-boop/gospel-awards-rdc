@@ -31,6 +31,7 @@ export default function Footer() {
               {[
                 { href: '/', label: 'Accueil' },
                 { href: '/categories', label: 'Catégories' },
+                { href: '/artistes', label: 'Artistes' },
                 { href: '/classements', label: 'Classements' },
                 { href: '/voter', label: 'Voter' },
               ].map((link) => (

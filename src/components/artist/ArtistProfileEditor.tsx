@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { updateArtistProfileEditorialAction } from '@/actions/artist-profile'
+import ArtistImageUploader from './ArtistImageUploader'
 
 interface Props {
   initialBio: string | null
@@ -21,8 +22,10 @@ export default function ArtistProfileEditor({
   const [isPending, startTransition] = useTransition()
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const getSocial = (platform: string) => socialLinks.find((s) => s.platform.toLowerCase() === platform.toLowerCase())?.url || ''
-  const getMusic = (platform: string) => musicLinks.find((m) => m.platform.toLowerCase() === platform.toLowerCase())?.url || ''
+  const getSocial = (platform: string) =>
+    socialLinks.find((s) => s.platform.toLowerCase() === platform.toLowerCase())?.url || ''
+  const getMusic = (platform: string) =>
+    musicLinks.find((m) => m.platform.toLowerCase() === platform.toLowerCase())?.url || ''
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -66,32 +69,23 @@ export default function ArtistProfileEditor({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-              URL Photo de Profil
-            </label>
-            <input
-              name="profileImage"
-              defaultValue={initialProfileImage || ''}
-              placeholder="https://..."
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-              URL Image de Couverture
-            </label>
-            <input
-              name="coverImage"
-              defaultValue={initialCoverImage || ''}
-              placeholder="https://..."
-              className="input-field"
-            />
-          </div>
-        </div>
+      {/* ===== SECTION 1 & 2 : IMPORT DES IMAGES DE PROFIL & COUVERTURE (SUPABASE STORAGE) ===== */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6 pb-6 border-b border-white/[0.06]">
+        {/* Photo de profil */}
+        <ArtistImageUploader
+          type="profile"
+          initialImageUrl={initialProfileImage}
+        />
 
+        {/* Image de couverture */}
+        <ArtistImageUploader
+          type="cover"
+          initialImageUrl={initialCoverImage}
+        />
+      </div>
+
+      {/* ===== SECTION 3 : BIOGRAPHIE ET LIENS SOCIAUX ===== */}
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
             Biographie & Présentation
@@ -183,7 +177,7 @@ export default function ArtistProfileEditor({
             disabled={isPending}
             className="btn-primary !py-2.5 !px-6 text-xs font-bold"
           >
-            {isPending ? 'Enregistrement...' : 'Enregistrer les Modifications'}
+            {isPending ? 'Enregistrement...' : 'Enregistrer les Informations'}
           </button>
           <span className="text-[11px] text-gray-500">
             Ces modifications seront immédiatement visibles sur votre profil public.

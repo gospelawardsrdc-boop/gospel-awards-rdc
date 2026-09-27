@@ -80,48 +80,71 @@ export default async function ArtisteDashboard() {
   const thirtyDaysPoints = thirtyDaysVotes.reduce((sum, v) => sum + v.points, 0)
 
   // Calculate real rank and stats for each category the artist participates in
-  const categoryRankings = await Promise.all(
-    artist.categories.map(async (ac) => {
-      const catArtists = await prisma.artistCategory.findMany({
-        where: { categoryId: ac.categoryId, artist: { isActive: true, isApproved: true } },
-        include: {
-          artist: {
-            include: {
-              votes: {
-                where: { categoryId: ac.categoryId },
-                select: { points: true, userId: true },
-              },
-            },
+  const categoryIds = artist.categories.map((ac) => ac.categoryId)
+
+  const [catArtists, catVotesGroup] = categoryIds.length > 0
+    ? await Promise.all([
+        prisma.artistCategory.findMany({
+          where: {
+            categoryId: { in: categoryIds },
+            artist: { isActive: true, isApproved: true },
           },
-        },
-      })
+          select: { categoryId: true, artistId: true },
+        }),
+        prisma.vote.groupBy({
+          by: ['categoryId', 'artistId'],
+          where: { categoryId: { in: categoryIds } },
+          _sum: { points: true },
+        }),
+      ])
+    : [[], []]
 
-      const sorted = catArtists
-        .map((ca) => ({
-          artistId: ca.artistId,
-          points: ca.artist.votes.reduce((sum, v) => sum + v.points, 0),
-          voteCount: ca.artist.votes.length,
-          voterCount: new Set(ca.artist.votes.map((v) => v.userId)).size,
-        }))
-        .sort((a, b) => b.points - a.points)
+  const voteMapByCat = new Map<string, Map<string, number>>()
+  for (const row of catVotesGroup) {
+    if (!voteMapByCat.has(row.categoryId)) {
+      voteMapByCat.set(row.categoryId, new Map())
+    }
+    voteMapByCat.get(row.categoryId)!.set(row.artistId, row._sum.points || 0)
+  }
 
-      const rankIndex = sorted.findIndex((item) => item.artistId === artist.id)
-      const rank = rankIndex >= 0 ? rankIndex + 1 : sorted.length
-      const myStatsInCat = sorted.find((item) => item.artistId === artist.id)
+  const competitorsByCat = new Map<string, string[]>()
+  for (const ca of catArtists) {
+    const list = competitorsByCat.get(ca.categoryId) || []
+    list.push(ca.artistId)
+    competitorsByCat.set(ca.categoryId, list)
+  }
 
-      return {
-        categoryId: ac.category.id,
-        categoryName: ac.category.name,
-        categorySlug: ac.category.slug,
-        categoryIcon: ac.category.icon,
-        rank,
-        points: myStatsInCat?.points || 0,
-        votes: myStatsInCat?.voteCount || 0,
-        voters: myStatsInCat?.voterCount || 0,
-        totalCompetitors: sorted.length,
-      }
-    })
-  )
+  const categoryRankings = artist.categories.map((ac) => {
+    const compArtistIds = competitorsByCat.get(ac.categoryId) || []
+    const catPointsMap = voteMapByCat.get(ac.categoryId) || new Map<string, number>()
+
+    const sorted = compArtistIds
+      .map((artId) => ({
+        artistId: artId,
+        points: catPointsMap.get(artId) || 0,
+      }))
+      .sort((a, b) => b.points - a.points)
+
+    const rankIndex = sorted.findIndex((item) => item.artistId === artist.id)
+    const rank = rankIndex >= 0 ? rankIndex + 1 : sorted.length || 1
+
+    const myVotesInCat = artist.votes.filter((v) => v.categoryId === ac.categoryId)
+    const myPointsInCat = myVotesInCat.reduce((sum, v) => sum + v.points, 0)
+    const myVoteCountInCat = myVotesInCat.length
+    const myVoterCountInCat = new Set(myVotesInCat.map((v) => v.userId)).size
+
+    return {
+      categoryId: ac.category.id,
+      categoryName: ac.category.name,
+      categorySlug: ac.category.slug,
+      categoryIcon: ac.category.icon,
+      rank,
+      points: myPointsInCat,
+      votes: myVoteCountInCat,
+      voters: myVoterCountInCat,
+      totalCompetitors: compArtistIds.length || 1,
+    }
+  })
 
   const bestRank = categoryRankings.length > 0
     ? Math.min(...categoryRankings.map((c) => c.rank))

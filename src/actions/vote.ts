@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
 import { revalidatePath, revalidateTag } from 'next/cache'
+import { formatDate } from '@/lib/utils'
 
 export async function createPaymentTransaction(packageId: string, paymentMethod: string = 'MOBILE_MONEY') {
   const session = await auth()
@@ -245,14 +246,48 @@ export async function voteForArtist(
 
   const categorySlug = categoryRelation.category.slug
 
-  // Récupérer la compétition active
+  // 1. Récupération de l'édition active configurée
   const competition = await prisma.competition.findFirst({
-    where: {
-      isActive: true,
-      startDate: { lte: new Date() },
-      endDate: { gte: new Date() },
-    },
+    where: { isActive: true },
+    orderBy: { createdAt: 'desc' },
   })
+
+  // 2. Garde A : Vérification de l'existence d'une édition active
+  if (!competition) {
+    return { error: 'Aucune édition n\'est actuellement disponible pour recevoir des votes.' }
+  }
+
+  // 3. Garde B : Vérification du statut de l'édition
+  if (competition.status === 'UPCOMING') {
+    return { error: 'L\'édition officielle n\'a pas encore débuté. Les votes ouvriront prochainement.' }
+  }
+
+  if (competition.status === 'DRAFT') {
+    return { error: 'Cette édition est en préparation. Les votes ne sont pas ouverts.' }
+  }
+
+  if (competition.status === 'CLOSED') {
+    return { error: 'Les votes pour cette édition sont officiellement clôturés.' }
+  }
+
+  if (competition.status === 'GALA') {
+    return { error: 'La période des votes est terminée. Cérémonie de remise des trophées en cours.' }
+  }
+
+  if (competition.status !== 'ACTIVE') {
+    return { error: 'Les votes ne sont pas ouverts pour cette édition.' }
+  }
+
+  // 4. Garde C : Vérification de la fenêtre temporelle [startDate, endDate]
+  const now = new Date()
+
+  if (now < competition.startDate) {
+    return { error: `La période de vote n'est pas encore ouverte (Ouverture prévue le ${formatDate(competition.startDate)}).` }
+  }
+
+  if (now > competition.endDate) {
+    return { error: 'La période de vote est terminée pour cette édition. Les votes sont clôturés.' }
+  }
 
   // Transaction atomique : Débit conditionnel avec verrouillage strict du solde (anti-race condition)
   try {
@@ -277,7 +312,7 @@ export async function voteForArtist(
           userId,
           artistId,
           categoryId,
-          competitionId: competition?.id,
+          competitionId: competition.id,
           points,
         },
       })

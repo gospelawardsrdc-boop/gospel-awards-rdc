@@ -7,6 +7,7 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import ArtistPerformanceChart from '@/components/artist/ArtistPerformanceChart'
 import ArtistShareButtons from '@/components/artist/ArtistShareButtons'
+import StickyVoteButton from '@/components/artist/StickyVoteButton'
 import { formatPoints, getRankEmoji } from '@/lib/utils'
 
 interface Props {
@@ -219,9 +220,10 @@ export default async function ArtistPage({ params }: Props) {
               {/* BOUTON D'ACTION DE VOTE (CTA PRINCIPAL) */}
               <div className="w-full md:w-auto flex flex-col items-center md:items-end justify-center pt-2 md:pt-0">
                 {!isSelf ? (
-                  <div className="w-full sm:w-auto flex flex-col items-center gap-2">
+                  <div id="main-vote-cta" className="w-full sm:w-auto flex flex-col items-center gap-2">
                     <Link
                       href={`/voter?artist=${artist.id}`}
+                      prefetch={true}
                       className="w-full sm:w-auto btn-primary text-sm sm:text-base !py-4 !px-8 sm:!px-10 font-black tracking-wide shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all text-center flex items-center justify-center gap-3 gold-gradient text-[#0A0E1A]"
                     >
                       <span className="text-lg">⭐</span>
@@ -572,6 +574,14 @@ export default async function ArtistPage({ params }: Props) {
 
         </main>
       </div>
+
+      {/* BOUTON STICKY MOBILE DÉCLENCHÉ PAR INTERSECTION OBSERVER */}
+      <StickyVoteButton
+        artistId={artist.id}
+        artistName={artist.stageName}
+        isSelf={isSelf}
+        targetElementId="main-vote-cta"
+      />
 
       <Footer />
     </div>

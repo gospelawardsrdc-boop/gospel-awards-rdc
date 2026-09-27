@@ -14,14 +14,16 @@ export default async function AdminFinancesPage() {
     prisma.withdrawal.findMany({
       select: {
         id: true,
-        amountFc: true,
-        paymentMethod: true,
-        recipientPhone: true,
-        recipientName: true,
-        status: true,
         reference: true,
-        processedAt: true,
+        amountFc: true,
+        provider: true,
+        destination: true,
+        destinationName: true,
+        requestedBy: true,
+        processedBy: true,
+        status: true,
         createdAt: true,
+        processedAt: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -32,8 +34,6 @@ export default async function AdminFinancesPage() {
         id: true,
         amountFc: true,
         pointsAmount: true,
-        paymentMethod: true,
-        paymentRef: true,
         status: true,
         createdAt: true,
         user: { select: { name: true } },
@@ -46,11 +46,12 @@ export default async function AdminFinancesPage() {
       select: {
         id: true,
         action: true,
-        entityType: true,
-        entityId: true,
-        metadata: true,
+        actorId: true,
+        actorName: true,
+        amountFc: true,
+        reference: true,
+        note: true,
         createdAt: true,
-        performedBy: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 15,
@@ -73,4 +74,5 @@ export default async function AdminFinancesPage() {
     </div>
   )
 }
+
 

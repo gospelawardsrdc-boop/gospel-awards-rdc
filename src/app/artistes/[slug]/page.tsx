@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import ArtistPerformanceChart from '@/components/artist/ArtistPerformanceChart'
+import ArtistShareButtons from '@/components/artist/ArtistShareButtons'
 import { formatPoints, getRankEmoji } from '@/lib/utils'
 
 interface Props {
@@ -233,6 +234,9 @@ export default async function ArtistPage({ params }: Props) {
               </div>
             </div>
           </div>
+
+          {/* CAMPAGNE OFFICIELLE & PARTAGE SOCIAL */}
+          <ArtistShareButtons artistName={artist.stageName} artistSlug={artist.slug} />
 
           {/* BARRE DE STATISTIQUES & IMPACT DES VOTES */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

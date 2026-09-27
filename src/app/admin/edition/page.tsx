@@ -14,19 +14,11 @@ export default async function AdminEditionPage() {
     redirect('/connexion')
   }
 
-  // Récupération de l'édition active ou la plus récente
-  let competition = await prisma.competition.findFirst({
-    where: { isActive: true },
-    orderBy: { createdAt: 'desc' },
-    include: {
-      _count: {
-        select: { votes: true },
-      },
-    },
-  })
-
-  if (!competition) {
+  let competition = null
+  try {
+    // Récupération de l'édition active ou la plus récente
     competition = await prisma.competition.findFirst({
+      where: { isActive: true },
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -34,16 +26,29 @@ export default async function AdminEditionPage() {
         },
       },
     })
+
+    if (!competition) {
+      competition = await prisma.competition.findFirst({
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: { votes: true },
+          },
+        },
+      })
+    }
+  } catch (error) {
+    console.error('Erreur chargement Competition dans AdminEditionPage:', error)
   }
 
   // Sérialisation des dates pour le composant client
   const serializedCompetition = competition
     ? {
         ...competition,
-        startDate: competition.startDate.toISOString(),
-        endDate: competition.endDate.toISOString(),
-        createdAt: competition.createdAt.toISOString(),
-        updatedAt: competition.updatedAt.toISOString(),
+        startDate: competition.startDate ? competition.startDate.toISOString() : new Date().toISOString(),
+        endDate: competition.endDate ? competition.endDate.toISOString() : new Date().toISOString(),
+        createdAt: competition.createdAt ? competition.createdAt.toISOString() : new Date().toISOString(),
+        updatedAt: competition.updatedAt ? competition.updatedAt.toISOString() : new Date().toISOString(),
       }
     : null
 

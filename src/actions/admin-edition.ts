@@ -5,8 +5,8 @@ import { auth } from '@/lib/auth'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { uploadToSupabaseStorage } from '@/lib/supabase/storage'
 
-export const VALID_EDITION_STATUSES = ['DRAFT', 'UPCOMING', 'ACTIVE', 'CLOSED', 'GALA'] as const
-export type EditionStatus = typeof VALID_EDITION_STATUSES[number]
+const VALID_EDITION_STATUSES = ['DRAFT', 'UPCOMING', 'ACTIVE', 'CLOSED', 'GALA'] as const
+type EditionStatus = typeof VALID_EDITION_STATUSES[number]
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp']

@@ -3,7 +3,10 @@
 import React, { useState, useTransition, useRef } from 'react'
 import Image from 'next/image'
 import { formatDate, formatDateTime } from '@/lib/utils'
-import { saveEditionAction, uploadEditionBannerAction, EditionStatus, VALID_EDITION_STATUSES } from '@/actions/admin-edition'
+import { saveEditionAction, uploadEditionBannerAction } from '@/actions/admin-edition'
+
+export const VALID_EDITION_STATUSES = ['DRAFT', 'UPCOMING', 'ACTIVE', 'CLOSED', 'GALA'] as const
+export type EditionStatus = typeof VALID_EDITION_STATUSES[number]
 
 export interface CompetitionData {
   id: string

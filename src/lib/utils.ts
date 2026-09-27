@@ -9,22 +9,36 @@ export function formatPoints(points: number): string {
   return new Intl.NumberFormat('fr-FR').format(points)
 }
 
-export function formatDate(date: Date | string): string {
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(date))
+export function formatDate(date: Date | string | null | undefined): string {
+  if (!date) return '—'
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date
+    if (!d || isNaN(d.getTime())) return '—'
+    return new Intl.DateTimeFormat('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d)
+  } catch {
+    return '—'
+  }
 }
 
-export function formatDateTime(date: Date | string): string {
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(date))
+export function formatDateTime(date: Date | string | null | undefined): string {
+  if (!date) return '—'
+  try {
+    const d = typeof date === 'string' ? new Date(date) : date
+    if (!d || isNaN(d.getTime())) return '—'
+    return new Intl.DateTimeFormat('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d)
+  } catch {
+    return '—'
+  }
 }
 
 export function slugify(text: string): string {

@@ -30,6 +30,7 @@ export default function Footer() {
             <ul className="space-y-3">
               {[
                 { href: '/', label: 'Accueil' },
+                { href: '/edition', label: 'Édition' },
                 { href: '/categories', label: 'Catégories' },
                 { href: '/artistes', label: 'Artistes' },
                 { href: '/classements', label: 'Classements' },

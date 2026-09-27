@@ -144,6 +144,10 @@ model Competition {
   id          String   @id @default(dbgenerated("(gen_random_uuid())::text"))
   name        String
   description String?
+  year        Int?
+  bannerImage String?
+  theme       String?
+  status      String?  @default("ACTIVE")
   startDate   DateTime @db.Timestamptz(6)
   endDate     DateTime @db.Timestamptz(6)
   isActive    Boolean  @default(true)

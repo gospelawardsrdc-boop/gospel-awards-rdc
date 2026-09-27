@@ -4,6 +4,7 @@ import Sidebar from '@/components/layout/Sidebar'
 
 const adminMenuItems = [
   { label: 'Dashboard', href: '/admin', icon: '📊' },
+  { label: 'Édition', href: '/admin/edition', icon: '🏆' },
   { label: 'Artistes & Candidats', href: '/admin/artistes', icon: '🎤' },
   { label: 'Catégories', href: '/admin/categories', icon: '🏷️' },
   { label: 'Votes', href: '/admin/votes', icon: '🗳️' },

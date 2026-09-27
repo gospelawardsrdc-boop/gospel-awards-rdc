@@ -7,7 +7,7 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 
 interface Props {
-  searchParams: Promise<{ artist?: string; category?: string }>
+  searchParams: Promise<{ artist?: string; artiste?: string; category?: string; [key: string]: string | undefined }>
 }
 
 const getPublicVoterData = unstable_cache(
@@ -74,14 +74,30 @@ const getPublicVoterData = unstable_cache(
 )
 
 export default async function VoterPage({ searchParams }: Props) {
+  const sp = await searchParams
   const session = await auth()
-  if (!session?.user) redirect('/connexion')
+
+  if (!session?.user) {
+    const queryParams = new URLSearchParams()
+    for (const [key, value] of Object.entries(sp || {})) {
+      if (typeof value === 'string' && value) {
+        queryParams.set(key, value)
+      } else if (Array.isArray(value) && value.length > 0) {
+        queryParams.set(key, value[0])
+      }
+    }
+    const qs = queryParams.toString()
+    const targetUrl = qs ? `/voter?${qs}` : '/voter'
+    redirect(`/connexion?callbackUrl=${encodeURIComponent(targetUrl)}`)
+  }
 
   const userId = (session.user as any).id
 
-  const [{ artist: preselectedArtist, category: preselectedCategory }, { formattedCategories, pointPackages }, user, artistProfile] =
+  const preselectedArtist = (typeof sp?.artist === 'string' ? sp.artist : undefined) || (typeof sp?.artiste === 'string' ? sp.artiste : undefined)
+  const preselectedCategory = typeof sp?.category === 'string' ? sp.category : undefined
+
+  const [{ formattedCategories, pointPackages }, user, artistProfile] =
     await Promise.all([
-      searchParams,
       getPublicVoterData(),
       prisma.user.findUnique({
         where: { id: userId },

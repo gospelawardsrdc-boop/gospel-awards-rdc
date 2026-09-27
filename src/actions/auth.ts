@@ -4,23 +4,26 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { signIn, signOut } from '@/lib/auth'
 import { loginSchema, registerSchema, candidateSchema } from '@/lib/validations/auth'
-import { slugify } from '@/lib/utils'
+import { slugify, getSafeRedirectUrl } from '@/lib/utils'
 import { AuthError } from 'next-auth'
 
 export async function loginAction(_prevState: any, formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  const callbackUrl = formData.get('callbackUrl')
 
   const validated = loginSchema.safeParse({ email, password })
   if (!validated.success) {
     return { error: validated.error.issues[0].message }
   }
 
+  const redirectTo = getSafeRedirectUrl(callbackUrl, '/dashboard')
+
   try {
     await signIn('credentials', {
       email,
       password,
-      redirectTo: '/dashboard',
+      redirectTo,
     })
   } catch (error) {
     if (error instanceof AuthError) {
@@ -67,11 +70,14 @@ export async function registerAction(_prevState: any, formData: FormData) {
     },
   })
 
+  const callbackUrl = formData.get('callbackUrl')
+  const redirectTo = getSafeRedirectUrl(callbackUrl, '/dashboard')
+
   try {
     await signIn('credentials', {
       email: data.email,
       password: data.password,
-      redirectTo: '/dashboard',
+      redirectTo,
     })
   } catch (error) {
     if (error instanceof AuthError) {

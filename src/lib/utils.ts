@@ -48,3 +48,28 @@ export function getRankEmoji(rank: number): string {
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('fr-FR').format(amount) + ' FC'
 }
+
+export function getSafeRedirectUrl(url: unknown, defaultUrl: string = '/dashboard'): string {
+  if (typeof url !== 'string' || !url.trim()) {
+    return defaultUrl
+  }
+
+  const trimmed = url.trim()
+
+  // Must start with a single '/' and not with '//' or '/\'
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//') || trimmed.startsWith('/\\')) {
+    return defaultUrl
+  }
+
+  // Validate path-only relative url
+  try {
+    const parsed = new URL(trimmed, 'http://localhost')
+    if (parsed.origin !== 'http://localhost') {
+      return defaultUrl
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`
+  } catch {
+    return defaultUrl
+  }
+}
+

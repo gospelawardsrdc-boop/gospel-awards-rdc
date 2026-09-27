@@ -1,20 +1,8 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
-import Sidebar from '@/components/layout/Sidebar'
 import { formatDate, formatCurrency, formatPoints } from '@/lib/utils'
 import { confirmPaymentTransaction, cancelPaymentTransaction } from '@/actions/vote'
-
-const adminMenuItems = [
-  { label: 'Dashboard', href: '/admin', icon: '📊' },
-  { label: 'Artistes & Candidats', href: '/admin/artistes', icon: '🎤' },
-  { label: 'Catégories', href: '/admin/categories', icon: '🏷️' },
-  { label: 'Votes', href: '/admin/votes', icon: '🗳️' },
-  { label: 'Packs de points', href: '/admin/points', icon: '📦' },
-  { label: 'Transactions', href: '/admin/transactions', icon: '💳' },
-  { label: 'Finances & Retraits', href: '/admin/finances', icon: '💰' },
-  { label: 'Utilisateurs', href: '/admin/utilisateurs', icon: '👥' },
-]
 
 export default async function AdminTransactionsPage({
   searchParams,
@@ -39,25 +27,44 @@ export default async function AdminTransactionsPage({
     ]
   }
 
-  const [transactions, totalCount, completedCount, pendingCount, failedCount, stats] = await Promise.all([
+  const [transactions, statusGroups, stats] = await Promise.all([
     prisma.transaction.findMany({
       where: whereClause,
-      include: {
+      select: {
+        id: true,
+        amountFc: true,
+        pointsAmount: true,
+        paymentMethod: true,
+        paymentRef: true,
+        status: true,
+        createdAt: true,
         user: { select: { name: true, email: true } },
         package: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
     }),
-    prisma.transaction.count(),
-    prisma.transaction.count({ where: { status: 'COMPLETED' } }),
-    prisma.transaction.count({ where: { status: 'PENDING' } }),
-    prisma.transaction.count({ where: { status: 'FAILED' } }),
+    prisma.transaction.groupBy({
+      by: ['status'],
+      _count: { _all: true },
+    }),
     prisma.transaction.aggregate({
       where: { status: 'COMPLETED' },
       _sum: { amountFc: true, pointsAmount: true },
     }),
   ])
+
+  let totalCount = 0
+  let completedCount = 0
+  let pendingCount = 0
+  let failedCount = 0
+
+  for (const g of statusGroups) {
+    totalCount += g._count._all
+    if (g.status === 'COMPLETED') completedCount = g._count._all
+    else if (g.status === 'PENDING') pendingCount = g._count._all
+    else if (g.status === 'FAILED') failedCount = g._count._all
+  }
 
   async function handleConfirmTx(formData: FormData) {
     'use server'
@@ -79,10 +86,7 @@ export default async function AdminTransactionsPage({
   const totalPoints = stats._sum.pointsAmount || 0
 
   return (
-    <div className="min-h-screen bg-[#060912] flex">
-      <Sidebar items={adminMenuItems} title="Administration" />
-      <main className="flex-1 lg:ml-0 pt-8 pb-20 px-4 lg:px-8">
-        <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/[0.06]">
             <div>
               <span className="text-xs font-semibold text-gold uppercase tracking-[0.2em] mb-1 block">
@@ -245,10 +249,8 @@ export default async function AdminTransactionsPage({
                   )}
                 </tbody>
               </table>
-            </div>
-          </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

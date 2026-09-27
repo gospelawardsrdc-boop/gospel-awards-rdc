@@ -2,20 +2,8 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import Sidebar from '@/components/layout/Sidebar'
 import { getFinancialSummary } from '@/actions/finances'
 import { formatPoints, formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
-
-const adminMenuItems = [
-  { label: 'Dashboard', href: '/admin', icon: '📊' },
-  { label: 'Artistes & Candidats', href: '/admin/artistes', icon: '🎤' },
-  { label: 'Catégories', href: '/admin/categories', icon: '🏷️' },
-  { label: 'Votes', href: '/admin/votes', icon: '🗳️' },
-  { label: 'Packs de points', href: '/admin/points', icon: '📦' },
-  { label: 'Transactions', href: '/admin/transactions', icon: '💳' },
-  { label: 'Finances & Retraits', href: '/admin/finances', icon: '💰' },
-  { label: 'Utilisateurs', href: '/admin/utilisateurs', icon: '👥' },
-]
 
 export default async function AdminDashboard() {
   const session = await auth()
@@ -59,7 +47,10 @@ export default async function AdminDashboard() {
       _count: { _all: true },
     }),
     prisma.vote.findMany({
-      include: {
+      select: {
+        id: true,
+        points: true,
+        createdAt: true,
         user: { select: { name: true } },
         artist: { select: { stageName: true, slug: true, profileImage: true } },
         category: { select: { name: true, icon: true } },
@@ -70,7 +61,11 @@ export default async function AdminDashboard() {
     prisma.category.findMany({
       where: { isActive: true },
       orderBy: { orderIndex: 'asc' },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+        slug: true,
         artists: {
           where: { artist: { isActive: true, isApproved: true } },
           select: { id: true },
@@ -90,7 +85,12 @@ export default async function AdminDashboard() {
       take: 5,
     }),
     prisma.transaction.findMany({
-      include: {
+      select: {
+        id: true,
+        amountFc: true,
+        paymentMethod: true,
+        status: true,
+        createdAt: true,
         user: { select: { name: true } },
         package: { select: { name: true } },
       },
@@ -149,11 +149,7 @@ export default async function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060912] flex">
-      <Sidebar items={adminMenuItems} title="Administration" />
-
-      <main className="flex-1 lg:ml-0 pt-8 pb-20 px-4 lg:px-8">
-        <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8">
           {/* 1. Admin Hero Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-white/[0.06]">
             <div>
@@ -514,10 +510,8 @@ export default async function AdminDashboard() {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

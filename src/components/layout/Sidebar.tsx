@@ -53,6 +53,7 @@ export default function Sidebar({ items, title }: SidebarProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   onClick={() => setCollapsed(false)}
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                     isActive
@@ -70,6 +71,7 @@ export default function Sidebar({ items, title }: SidebarProps) {
           <div className="p-4 border-t border-white/[0.06] space-y-2">
             <Link
               href="/"
+              prefetch={true}
               className="flex items-center gap-2 text-xs font-medium text-gray-400 hover:text-gold transition-colors py-1.5 px-2 rounded-lg hover:bg-white/[0.02]"
             >
               <span>←</span>

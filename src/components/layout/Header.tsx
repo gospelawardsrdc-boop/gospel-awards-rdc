@@ -64,6 +64,7 @@ export default function Header({ user }: HeaderProps) {
                 <Link
                   key={link.href}
                   href={link.href}
+                  prefetch={true}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     pathname === link.href
                       ? 'text-gold bg-gold/[0.08]'
@@ -75,6 +76,7 @@ export default function Header({ user }: HeaderProps) {
               ))}
               <Link
                 href="/voter"
+                prefetch={true}
                 className="ml-2 btn-primary text-sm !py-2 !px-5"
               >
                 Voter
@@ -87,6 +89,7 @@ export default function Header({ user }: HeaderProps) {
                 <div className="flex items-center gap-2">
                   <Link
                     href={getDashboardLink()!}
+                    prefetch={true}
                     className="flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm text-gray-300 hover:text-white hover:bg-white/[0.04] transition-all"
                   >
                     <div className="w-7 h-7 rounded-full bg-surface-light border border-border flex items-center justify-center text-xs font-bold text-gold">
@@ -226,6 +229,7 @@ export default function Header({ user }: HeaderProps) {
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               className={`flex flex-col items-center gap-0.5 py-1.5 px-3 rounded-xl text-[10px] font-medium transition-all ${
                 pathname === item.href
                   ? 'text-gold'

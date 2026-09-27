@@ -297,6 +297,7 @@ export default function ArtistesClient({ artists, categories, currentArtistId }:
                     <div className="flex items-center gap-1.5 flex-wrap mb-1">
                       <Link
                         href={`/artistes/${artist.slug}`}
+                        prefetch={true}
                         className="font-black text-base sm:text-lg text-white group-hover:text-gold transition-colors truncate"
                       >
                         {artist.stageName}
@@ -351,12 +352,14 @@ export default function ArtistesClient({ artists, categories, currentArtistId }:
                 <div className="p-5 pt-0 flex gap-2">
                   <Link
                     href={`/artistes/${artist.slug}`}
+                    prefetch={true}
                     className="flex-1 text-center text-xs font-bold py-2.5 rounded-xl border border-white/[0.1] text-gray-300 hover:border-gold/40 hover:text-white transition-all"
                   >
                     Profil
                   </Link>
                   <Link
                     href={`/voter?artist=${artist.id}`}
+                    prefetch={true}
                     className="flex-1 text-center text-xs font-black py-2.5 rounded-xl btn-primary text-[#060912] shadow-md"
                   >
                     ⭐ Voter

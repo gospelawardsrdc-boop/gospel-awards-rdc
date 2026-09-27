@@ -32,12 +32,10 @@ const getLiveRankings = unstable_cache(
           },
         },
       }),
-      prisma.vote.findMany({
-        select: {
-          categoryId: true,
-          artistId: true,
-          points: true,
-        },
+      prisma.vote.groupBy({
+        by: ['categoryId', 'artistId'],
+        _sum: { points: true },
+        _count: { _all: true },
       }),
     ])
 
@@ -45,10 +43,10 @@ const getLiveRankings = unstable_cache(
     const voteAggMap = new Map<string, { totalPoints: number; totalVotes: number }>()
     for (const v of allVotes) {
       const key = `${v.categoryId}:${v.artistId}`
-      const current = voteAggMap.get(key) || { totalPoints: 0, totalVotes: 0 }
-      current.totalPoints += v.points
-      current.totalVotes += 1
-      voteAggMap.set(key, current)
+      voteAggMap.set(key, {
+        totalPoints: v._sum.points || 0,
+        totalVotes: v._count._all || 0,
+      })
     }
 
     return categories.map((category) => {

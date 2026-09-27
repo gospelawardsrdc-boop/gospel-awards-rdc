@@ -36,12 +36,10 @@ const getCategoriesData = unstable_cache(
         where: { isActive: true, isApproved: true },
         select: { id: true },
       }),
-      prisma.vote.findMany({
-        select: {
-          categoryId: true,
-          artistId: true,
-          points: true,
-        },
+      prisma.vote.groupBy({
+        by: ['categoryId', 'artistId'],
+        _sum: { points: true },
+        _count: { _all: true },
       }),
     ])
 
@@ -51,10 +49,12 @@ const getCategoriesData = unstable_cache(
     const catTotalVotesMap = new Map<string, number>()
 
     for (const v of allVotes) {
+      const pts = v._sum.points || 0
+      const count = v._count._all || 0
       const key = `${v.categoryId}:${v.artistId}`
-      catArtistPointsMap.set(key, (catArtistPointsMap.get(key) || 0) + v.points)
-      catTotalPointsMap.set(v.categoryId, (catTotalPointsMap.get(v.categoryId) || 0) + v.points)
-      catTotalVotesMap.set(v.categoryId, (catTotalVotesMap.get(v.categoryId) || 0) + 1)
+      catArtistPointsMap.set(key, pts)
+      catTotalPointsMap.set(v.categoryId, (catTotalPointsMap.get(v.categoryId) || 0) + pts)
+      catTotalVotesMap.set(v.categoryId, (catTotalVotesMap.get(v.categoryId) || 0) + count)
     }
 
     const formattedCategories = categories.map((cat, idx) => {

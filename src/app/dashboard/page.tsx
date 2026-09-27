@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   if (role === 'ARTIST') redirect('/artiste')
 
   // Fetch only authenticated user's data in parallel
-  const [user, allUserVotes, totalPointsSpentAgg] = await Promise.all([
+  const [user, recentVotes, userVoteStats, userCategoryVotes] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -32,7 +32,10 @@ export default async function DashboardPage() {
     }),
     prisma.vote.findMany({
       where: { userId },
-      include: {
+      select: {
+        id: true,
+        points: true,
+        createdAt: true,
         artist: {
           select: {
             id: true,
@@ -51,46 +54,41 @@ export default async function DashboardPage() {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 10,
     }),
     prisma.vote.aggregate({
       where: { userId },
       _sum: { points: true },
+      _count: { _all: true },
+    }),
+    prisma.vote.groupBy({
+      by: ['categoryId'],
+      where: { userId },
+      _sum: { points: true },
+      _count: { _all: true },
     }),
   ])
 
-  // In-memory stats computations
-  const totalVotesCount = allUserVotes.length
-  const totalPointsSpent = totalPointsSpentAgg._sum.points || 0
-  const recentVotes = allUserVotes.slice(0, 10)
-  const lastVoteDate = allUserVotes[0]?.createdAt || null
-
-  // Compute categories breakdown
-  const categoryStatsMap = new Map<
-    string,
-    {
-      category: { id: string; name: string; slug: string; icon: string | null }
-      voteCount: number
-      pointsSpent: number
-    }
-  >()
-
-  for (const vote of allUserVotes) {
-    const existing = categoryStatsMap.get(vote.categoryId)
-    if (existing) {
-      existing.voteCount += 1
-      existing.pointsSpent += vote.points
-    } else {
-      categoryStatsMap.set(vote.categoryId, {
-        category: vote.category,
-        voteCount: 1,
-        pointsSpent: vote.points,
+  const categoryIds = userCategoryVotes.map((c) => c.categoryId)
+  const categoriesList = categoryIds.length > 0
+    ? await prisma.category.findMany({
+        where: { id: { in: categoryIds } },
+        select: { id: true, name: true, slug: true, icon: true },
       })
-    }
-  }
+    : []
 
-  const supportedCategories = Array.from(categoryStatsMap.values()).sort(
-    (a, b) => b.pointsSpent - a.pointsSpent
-  )
+  const catMap = new Map(categoriesList.map((c) => [c.id, c]))
+  const supportedCategories = userCategoryVotes
+    .map((c) => ({
+      category: catMap.get(c.categoryId) || { id: c.categoryId, name: '', slug: '', icon: null },
+      voteCount: c._count._all,
+      pointsSpent: c._sum.points || 0,
+    }))
+    .sort((a, b) => b.pointsSpent - a.pointsSpent)
+
+  const totalVotesCount = userVoteStats._count._all
+  const totalPointsSpent = userVoteStats._sum.points || 0
+  const lastVoteDate = recentVotes[0]?.createdAt || null
 
   const displayName = user?.name?.trim() || 'Votant'
 

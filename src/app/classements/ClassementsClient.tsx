@@ -646,6 +646,7 @@ function ArtistRankingRow({
           <div className="flex items-center gap-2 flex-wrap">
             <Link
               href={`/artistes/${item.artist.slug}`}
+              prefetch={true}
               className="font-bold text-sm text-white hover:text-gold transition-colors truncate"
             >
               {item.artist.stageName}
@@ -683,6 +684,7 @@ function ArtistRankingRow({
         <div className="flex items-center gap-2">
           <Link
             href={`/artistes/${item.artist.slug}`}
+            prefetch={true}
             className="p-2 text-xs font-semibold text-gray-400 hover:text-white rounded-xl hover:bg-white/[0.06] transition-all hidden md:inline-block"
             title="Voir le profil"
           >
@@ -690,6 +692,7 @@ function ArtistRankingRow({
           </Link>
           <Link
             href={`/voter?artist=${item.artist.id}&category=${category.id}`}
+            prefetch={true}
             className="btn-primary !text-xs !py-2 !px-3 sm:!px-4 font-black shadow-md flex-shrink-0"
           >
             ⭐ Voter

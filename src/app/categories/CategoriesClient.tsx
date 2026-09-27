@@ -204,12 +204,14 @@ export default function CategoriesClient({ categories, totalArtistsCount }: Prop
                 <div className="grid grid-cols-2 gap-2">
                   <Link
                     href={`/categories/${cat.slug}`}
+                    prefetch={true}
                     className="btn-secondary !text-xs !py-2.5 !px-3 font-bold text-center truncate"
                   >
                     Voir les artistes ({cat.artistCount})
                   </Link>
                   <Link
                     href="/classements"
+                    prefetch={true}
                     className="py-2.5 px-3 rounded-xl border border-white/[0.08] hover:border-gold/40 text-gray-300 hover:text-white text-xs font-semibold text-center transition-all truncate bg-white/[0.02]"
                   >
                     Voir le classement ↗
@@ -217,6 +219,7 @@ export default function CategoriesClient({ categories, totalArtistsCount }: Prop
                 </div>
                 <Link
                   href={`/voter?category=${cat.id}`}
+                  prefetch={true}
                   className="w-full block btn-primary !text-xs !py-2.5 font-black text-center shadow-md"
                 >
                   ⭐ Voter dans cette catégorie

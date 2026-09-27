@@ -9,7 +9,7 @@ import { formatPoints, formatCurrency, getRankEmoji } from '@/lib/utils'
 
 const getHomeData = unstable_cache(
   async () => {
-    const [categories, pointPackages, competition, approvedArtists, allVotes] = await Promise.all([
+    const [categories, pointPackages, competition, approvedArtists, allVotes, totalPointsAgg] = await Promise.all([
       prisma.category.findMany({
         where: { isActive: true },
         orderBy: { orderIndex: 'asc' },
@@ -50,12 +50,13 @@ const getHomeData = unstable_cache(
           },
         },
       }),
-      prisma.vote.findMany({
-        select: {
-          artistId: true,
-          points: true,
-          userId: true,
-        },
+      prisma.vote.groupBy({
+        by: ['artistId'],
+        _sum: { points: true },
+        _count: { _all: true },
+      }),
+      prisma.vote.aggregate({
+        _sum: { points: true },
       }),
     ])
 
@@ -75,17 +76,14 @@ const getHomeData = unstable_cache(
     }))
 
     // Aggregate real votes in memory
-    const artistVotesMap = new Map<string, { totalPoints: number; totalVotes: number; voterIds: Set<string> }>()
-    let totalPointsDistributed = 0
-
+    const artistVotesMap = new Map<string, { totalPoints: number; totalVotes: number }>()
     for (const v of allVotes) {
-      totalPointsDistributed += v.points
-      const stat = artistVotesMap.get(v.artistId) || { totalPoints: 0, totalVotes: 0, voterIds: new Set<string>() }
-      stat.totalPoints += v.points
-      stat.totalVotes += 1
-      stat.voterIds.add(v.userId)
-      artistVotesMap.set(v.artistId, stat)
+      artistVotesMap.set(v.artistId, {
+        totalPoints: v._sum.points || 0,
+        totalVotes: v._count._all || 0,
+      })
     }
+    const totalPointsDistributed = totalPointsAgg._sum.points || 0
 
     const artistsWithStats = approvedArtists
       .map((artist) => {
@@ -103,7 +101,7 @@ const getHomeData = unstable_cache(
           })),
           totalPoints: stat?.totalPoints || 0,
           totalVotes: stat?.totalVotes || 0,
-          totalVoters: stat?.voterIds.size || 0,
+          totalVoters: stat?.totalVotes || 0,
         }
       })
       .sort((a, b) => b.totalPoints - a.totalPoints)

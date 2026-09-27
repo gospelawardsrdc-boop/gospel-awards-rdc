@@ -40,21 +40,20 @@ const getPublicArtistsData = unstable_cache(
           },
         },
       }),
-      prisma.vote.findMany({
-        select: {
-          artistId: true,
-          points: true,
-        },
+      prisma.vote.groupBy({
+        by: ['artistId'],
+        _sum: { points: true },
+        _count: { _all: true },
       }),
     ])
 
     // Aggregate points and votes in memory
     const artistVotesMap = new Map<string, { totalPoints: number; totalVotes: number }>()
     for (const v of allVotes) {
-      const current = artistVotesMap.get(v.artistId) || { totalPoints: 0, totalVotes: 0 }
-      current.totalPoints += v.points
-      current.totalVotes += 1
-      artistVotesMap.set(v.artistId, current)
+      artistVotesMap.set(v.artistId, {
+        totalPoints: v._sum.points || 0,
+        totalVotes: v._count._all || 0,
+      })
     }
 
     // Format and rank artists by total points

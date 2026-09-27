@@ -70,13 +70,13 @@ export default async function ArtisteDashboard() {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000)
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000)
 
-  const todayVotes = artist.votes.filter((v) => v.createdAt >= startOfToday)
+  const todayVotes = artist.votes.filter((v) => new Date(v.createdAt) >= startOfToday)
   const todayPoints = todayVotes.reduce((sum, v) => sum + v.points, 0)
 
-  const sevenDaysVotes = artist.votes.filter((v) => v.createdAt >= sevenDaysAgo)
+  const sevenDaysVotes = artist.votes.filter((v) => new Date(v.createdAt) >= sevenDaysAgo)
   const sevenDaysPoints = sevenDaysVotes.reduce((sum, v) => sum + v.points, 0)
 
-  const thirtyDaysVotes = artist.votes.filter((v) => v.createdAt >= thirtyDaysAgo)
+  const thirtyDaysVotes = artist.votes.filter((v) => new Date(v.createdAt) >= thirtyDaysAgo)
   const thirtyDaysPoints = thirtyDaysVotes.reduce((sum, v) => sum + v.points, 0)
 
   // Calculate real rank and stats for each category the artist participates in
@@ -412,7 +412,7 @@ export default async function ArtisteDashboard() {
             <ArtistPerformanceChart
               votes={artist.votes.map((v) => ({
                 points: v.points,
-                createdAt: v.createdAt.toISOString(),
+                createdAt: typeof v.createdAt === 'string' ? v.createdAt : new Date(v.createdAt).toISOString(),
               }))}
             />
           </div>
@@ -452,10 +452,10 @@ export default async function ArtisteDashboard() {
                     className="flex items-center justify-between p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-gold/20 transition-all text-xs"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-base">{vote.category.icon || '🏆'}</span>
+                      <span className="text-base">{vote.category?.icon || '🏆'}</span>
                       <div className="min-w-0">
                         <span className="text-gray-300 font-bold block truncate">
-                          Vote dans « {vote.category.name} »
+                          Vote dans « {vote.category?.name || 'Catégorie'} »
                         </span>
                         <span className="text-[10px] text-gray-500">
                           {formatDateTime(vote.createdAt)}

@@ -42,17 +42,28 @@ const getPublicArtistProfile = unstable_cache(
     // Calcul du classement en temps réel par catégorie
     const categoryRanks = await Promise.all(
       artist.categories.map(async (ac) => {
-        const rankings = await prisma.vote.groupBy({
-          by: ['artistId'],
-          where: { categoryId: ac.categoryId },
-          _sum: { points: true },
-          orderBy: { _sum: { points: 'desc' } },
-        })
-        const rank = rankings.findIndex((r) => r.artistId === artist.id) + 1
+        const [catCompetitors, rankings] = await Promise.all([
+          prisma.artistCategory.count({
+            where: {
+              categoryId: ac.categoryId,
+              artist: { isActive: true, isApproved: true },
+            },
+          }),
+          prisma.vote.groupBy({
+            by: ['artistId'],
+            where: { categoryId: ac.categoryId },
+            _sum: { points: true },
+            orderBy: { _sum: { points: 'desc' } },
+          }),
+        ])
+
+        const rankIndex = rankings.findIndex((r) => r.artistId === artist.id)
+        const rank = rankIndex >= 0 ? rankIndex + 1 : (rankings.length > 0 ? rankings.length + 1 : 1)
+
         return {
           category: ac.category,
-          rank: rank || 0,
-          totalCompetitors: rankings.length,
+          rank: rank || 1,
+          totalCompetitors: Math.max(catCompetitors, rankings.length, 1),
         }
       })
     )
@@ -381,7 +392,7 @@ export default async function ArtistPage({ params }: Props) {
           <ArtistPerformanceChart
             votes={artist.votes.map((v) => ({
               points: v.points,
-              createdAt: v.createdAt.toISOString(),
+              createdAt: typeof v.createdAt === 'string' ? v.createdAt : new Date(v.createdAt).toISOString(),
             }))}
           />
 

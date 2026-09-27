@@ -646,30 +646,43 @@ export default function VoterForm({
                   </div>
                 </div>
 
-                {/* Submit Vote CTA */}
-                <button
-                  type="button"
-                  onClick={handleOpenConfirmModal}
-                  disabled={isPending || isSelf || hasInsufficientBalance}
-                  className={`w-full !py-4 text-sm sm:text-base font-black tracking-wide rounded-2xl transition-all shadow-xl ${
-                    isSelf
-                      ? 'bg-white/[0.04] text-gray-500 border border-white/[0.06] cursor-not-allowed'
-                      : hasInsufficientBalance
-                      ? 'bg-rose-500/10 border border-rose-500/30 text-rose-300 cursor-not-allowed'
-                      : 'btn-primary animate-pulse-vote hover:scale-[1.01]'
-                  }`}
-                >
-                  {isSelf
-                    ? 'Vote non autorisé pour votre profil'
-                    : hasInsufficientBalance
-                    ? '⚠️ Solde insuffisant pour voter'
-                    : `⭐ VOTER AVEC ${pointsToVote} POINT${pointsToVote > 1 ? 'S' : ''}`}
-                </button>
-
-                {hasInsufficientBalance && (
-                  <p className="text-center text-xs text-rose-400/90 font-medium">
-                    Vous avez besoin de {pointsToVote - balance} point(s) supplémentaire(s). Achetez un pack ci-contre pour continuer.
-                  </p>
+                {/* Submit Vote CTA or Buy Points CTA */}
+                {isSelf ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full !py-4 text-sm sm:text-base font-black tracking-wide rounded-2xl transition-all shadow-xl bg-white/[0.04] text-gray-500 border border-white/[0.06] cursor-not-allowed"
+                  >
+                    Vote non autorisé pour votre profil
+                  </button>
+                ) : hasInsufficientBalance ? (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const el = document.getElementById('packs-points')
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        }
+                      }}
+                      className="w-full !py-4 text-xs sm:text-sm md:text-base font-black tracking-wide rounded-2xl transition-all shadow-xl btn-primary animate-pulse-vote hover:scale-[1.01] flex items-center justify-center gap-2"
+                    >
+                      <span>💳</span>
+                      <span>Acheter des points pour voter (dès 1 000 FC)</span>
+                    </button>
+                    <p className="text-center text-xs text-amber-300/90 font-medium">
+                      Rechargez votre solde avec l&apos;un des 5 packs officiels pour finaliser ce vote.
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleOpenConfirmModal}
+                    disabled={isPending}
+                    className="w-full !py-4 text-sm sm:text-base font-black tracking-wide rounded-2xl transition-all shadow-xl btn-primary animate-pulse-vote hover:scale-[1.01]"
+                  >
+                    ⭐ VOTER AVEC {pointsToVote} POINT{pointsToVote > 1 ? 'S' : ''}
+                  </button>
                 )}
               </div>
             </div>
@@ -677,7 +690,7 @@ export default function VoterForm({
         </div>
 
         {/* Right Column: Wallet & Point Packages */}
-        <div className="lg:col-span-5 space-y-6">
+        <div id="packs-points" className="lg:col-span-5 space-y-6 scroll-mt-28">
           {/* User Wallet Card */}
           <div className="premium-card p-6 border-2 border-gold/20">
             <div className="flex items-center justify-between pb-5 border-b border-white/[0.08] mb-5">

@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
@@ -11,52 +12,73 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
-export default async function ArtistPage({ params }: Props) {
-  const { slug } = await params
-  const session = await auth()
-  const user = session?.user ? { name: session.user.name!, role: (session.user as any).role } : null
-
-  const artist = await prisma.artist.findUnique({
-    where: { slug },
-    include: {
-      categories: { include: { category: true } },
-      socialLinks: true,
-      musicLinks: true,
-      videoLinks: true,
-      votes: {
-        select: {
-          id: true,
-          points: true,
-          userId: true,
-          createdAt: true,
+const getPublicArtistProfile = unstable_cache(
+  async (slug: string) => {
+    const artist = await prisma.artist.findUnique({
+      where: { slug },
+      include: {
+        categories: { include: { category: true } },
+        socialLinks: true,
+        musicLinks: true,
+        videoLinks: true,
+        votes: {
+          select: {
+            id: true,
+            points: true,
+            userId: true,
+            createdAt: true,
+          },
         },
       },
-    },
-  })
-
-  if (!artist || !artist.isActive || !artist.isApproved) notFound()
-
-  const totalPoints = artist.votes.reduce((sum, v) => sum + v.points, 0)
-  const totalVotes = artist.votes.length
-  const uniqueVoters = new Set(artist.votes.map((v) => v.userId)).size
-
-  // Calcul du classement en temps réel par catégorie
-  const categoryRanks = await Promise.all(
-    artist.categories.map(async (ac) => {
-      const rankings = await prisma.vote.groupBy({
-        by: ['artistId'],
-        where: { categoryId: ac.categoryId },
-        _sum: { points: true },
-        orderBy: { _sum: { points: 'desc' } },
-      })
-      const rank = rankings.findIndex((r) => r.artistId === artist.id) + 1
-      return {
-        category: ac.category,
-        rank: rank || 0,
-        totalCompetitors: rankings.length,
-      }
     })
-  )
+
+    if (!artist || !artist.isActive || !artist.isApproved) return null
+
+    const totalPoints = artist.votes.reduce((sum, v) => sum + v.points, 0)
+    const totalVotes = artist.votes.length
+    const uniqueVoters = new Set(artist.votes.map((v) => v.userId)).size
+
+    // Calcul du classement en temps réel par catégorie
+    const categoryRanks = await Promise.all(
+      artist.categories.map(async (ac) => {
+        const rankings = await prisma.vote.groupBy({
+          by: ['artistId'],
+          where: { categoryId: ac.categoryId },
+          _sum: { points: true },
+          orderBy: { _sum: { points: 'desc' } },
+        })
+        const rank = rankings.findIndex((r) => r.artistId === artist.id) + 1
+        return {
+          category: ac.category,
+          rank: rank || 0,
+          totalCompetitors: rankings.length,
+        }
+      })
+    )
+
+    return {
+      artist,
+      totalPoints,
+      totalVotes,
+      uniqueVoters,
+      categoryRanks,
+    }
+  },
+  ['public-artist-profile-v1'],
+  { revalidate: 30, tags: ['artists', 'votes'] }
+)
+
+export default async function ArtistPage({ params }: Props) {
+  const { slug } = await params
+  const [session, profileData] = await Promise.all([
+    auth(),
+    getPublicArtistProfile(slug),
+  ])
+
+  if (!profileData) notFound()
+
+  const { artist, totalPoints, totalVotes, uniqueVoters, categoryRanks } = profileData
+  const user = session?.user ? { name: session.user.name!, role: (session.user as any).role } : null
 
   const socialIcons: Record<string, { icon: string; label: string; bgClass: string }> = {
     facebook: { icon: '📘', label: 'Facebook', bgClass: 'hover:border-blue-500/40 hover:text-blue-400' },

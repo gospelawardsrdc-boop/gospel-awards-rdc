@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
@@ -10,58 +11,86 @@ interface Props {
   params: Promise<{ slug: string }>
 }
 
+const getPublicCategoryDetail = unstable_cache(
+  async (slug: string) => {
+    const category = await prisma.category.findUnique({
+      where: { slug },
+      include: {
+        artists: {
+          where: { artist: { isActive: true, isApproved: true } },
+          include: {
+            artist: {
+              select: {
+                id: true,
+                userId: true,
+                stageName: true,
+                slug: true,
+                profileImage: true,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!category) return null
+
+    const votes = await prisma.vote.findMany({
+      where: { categoryId: category.id },
+      select: {
+        artistId: true,
+        points: true,
+        userId: true,
+      },
+    })
+
+    const artistStatsMap = new Map<string, { totalPoints: number; totalVotes: number; voterIds: Set<string> }>()
+    for (const v of votes) {
+      let stat = artistStatsMap.get(v.artistId)
+      if (!stat) {
+        stat = { totalPoints: 0, totalVotes: 0, voterIds: new Set<string>() }
+        artistStatsMap.set(v.artistId, stat)
+      }
+      stat.totalPoints += v.points
+      stat.totalVotes += 1
+      if (v.userId) {
+        stat.voterIds.add(v.userId)
+      }
+    }
+
+    const artistsWithStats = category.artists
+      .map((ac) => {
+        const stat = artistStatsMap.get(ac.artistId)
+        return {
+          ...ac.artist,
+          totalPoints: stat?.totalPoints || 0,
+          totalVotes: stat?.totalVotes || 0,
+          totalVoters: stat?.voterIds.size || 0,
+        }
+      })
+      .sort((a, b) => b.totalPoints - a.totalPoints)
+      .map((artist, index) => ({ ...artist, rank: index + 1 }))
+
+    return {
+      category,
+      artistsWithStats,
+    }
+  },
+  ['public-category-detail-data-v1'],
+  { revalidate: 30, tags: ['categories', 'votes'] }
+)
+
 export default async function CategoryPage({ params }: Props) {
   const { slug } = await params
-  const session = await auth()
+  const [session, data] = await Promise.all([
+    auth(),
+    getPublicCategoryDetail(slug),
+  ])
+
+  if (!data) notFound()
+
+  const { category, artistsWithStats } = data
   const user = session?.user ? { name: session.user.name!, role: (session.user as any).role } : null
-
-  const category = await prisma.category.findUnique({
-    where: { slug },
-    include: {
-      artists: {
-        where: { artist: { isActive: true, isApproved: true } },
-        include: { artist: true },
-      },
-    },
-  })
-
-  if (!category) notFound()
-
-  const votes = await prisma.vote.findMany({
-    where: { categoryId: category.id },
-    select: {
-      artistId: true,
-      points: true,
-      userId: true,
-    },
-  })
-
-  const artistStatsMap = new Map<string, { totalPoints: number; totalVotes: number; voterIds: Set<string> }>()
-  for (const v of votes) {
-    let stat = artistStatsMap.get(v.artistId)
-    if (!stat) {
-      stat = { totalPoints: 0, totalVotes: 0, voterIds: new Set<string>() }
-      artistStatsMap.set(v.artistId, stat)
-    }
-    stat.totalPoints += v.points
-    stat.totalVotes += 1
-    if (v.userId) {
-      stat.voterIds.add(v.userId)
-    }
-  }
-
-  const artistsWithStats = category.artists
-    .map((ac) => {
-      const stat = artistStatsMap.get(ac.artistId)
-      return {
-        ...ac.artist,
-        totalPoints: stat?.totalPoints || 0,
-        totalVotes: stat?.totalVotes || 0,
-        totalVoters: stat?.voterIds.size || 0,
-      }
-    })
-    .sort((a, b) => b.totalPoints - a.totalPoints)
-    .map((artist, index) => ({ ...artist, rank: index + 1 }))
 
   return (
     <div className="min-h-screen bg-[#060912]">

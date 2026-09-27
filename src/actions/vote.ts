@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 
 export async function createPaymentTransaction(packageId: string, paymentMethod: string = 'MOBILE_MONEY') {
   const session = await auth()
@@ -294,9 +294,16 @@ export async function voteForArtist(
   }
 
   try {
+    revalidateTag('votes', 'max')
+    revalidateTag('rankings', 'max')
+    revalidateTag('home-data', 'max')
+    revalidateTag('artists', 'max')
+    revalidateTag('categories', 'max')
+
     revalidatePath('/')
     revalidatePath('/categories')
     revalidatePath(`/categories/${categorySlug}`)
+    revalidatePath('/artistes')
     revalidatePath(`/artistes/${artist.slug}`)
     revalidatePath('/classements')
     revalidatePath('/voter')

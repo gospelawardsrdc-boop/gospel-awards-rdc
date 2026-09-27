@@ -294,6 +294,7 @@ export async function voteForArtist(
   }
 
   try {
+    revalidatePath('/')
     revalidatePath('/categories')
     revalidatePath(`/categories/${categorySlug}`)
     revalidatePath(`/artistes/${artist.slug}`)

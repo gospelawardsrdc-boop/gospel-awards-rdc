@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
 import Image from 'next/image'
 import { prisma } from '@/lib/prisma'
@@ -6,88 +7,126 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import { formatPoints, formatCurrency, getRankEmoji } from '@/lib/utils'
 
-async function getHomeData() {
-  const [categories, pointPackages, competition, approvedArtists, allVotes] = await Promise.all([
-    prisma.category.findMany({
-      where: { isActive: true },
-      orderBy: { orderIndex: 'asc' },
-      include: {
-        _count: {
-          select: {
-            artists: {
-              where: { artist: { isActive: true, isApproved: true } },
+const getHomeData = unstable_cache(
+  async () => {
+    const [categories, pointPackages, competition, approvedArtists, allVotes] = await Promise.all([
+      prisma.category.findMany({
+        where: { isActive: true },
+        orderBy: { orderIndex: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          icon: true,
+          description: true,
+          orderIndex: true,
+        },
+      }),
+      prisma.pointPackage.findMany({
+        where: { isActive: true },
+        orderBy: { orderIndex: 'asc' },
+      }),
+      prisma.competition.findFirst({
+        where: { isActive: true },
+      }),
+      prisma.artist.findMany({
+        where: { isActive: true, isApproved: true },
+        select: {
+          id: true,
+          stageName: true,
+          slug: true,
+          profileImage: true,
+          coverImage: true,
+          categories: {
+            select: {
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
             },
           },
         },
-      },
-    }),
-    prisma.pointPackage.findMany({
-      where: { isActive: true },
-      orderBy: { orderIndex: 'asc' },
-    }),
-    prisma.competition.findFirst({
-      where: { isActive: true },
-    }),
-    prisma.artist.findMany({
-      where: { isActive: true, isApproved: true },
-      include: {
-        categories: {
-          include: { category: true },
+      }),
+      prisma.vote.findMany({
+        select: {
+          artistId: true,
+          points: true,
+          userId: true,
         },
-      },
-    }),
-    prisma.vote.findMany({
-      select: {
-        artistId: true,
-        points: true,
-        userId: true,
-      },
-    }),
-  ])
+      }),
+    ])
 
-  // Aggregate real votes in memory
-  const artistVotesMap = new Map<string, { totalPoints: number; totalVotes: number; voterIds: Set<string> }>()
-  for (const v of allVotes) {
-    const stat = artistVotesMap.get(v.artistId) || { totalPoints: 0, totalVotes: 0, voterIds: new Set<string>() }
-    stat.totalPoints += v.points
-    stat.totalVotes += 1
-    stat.voterIds.add(v.userId)
-    artistVotesMap.set(v.artistId, stat)
-  }
-
-  const artistsWithStats = approvedArtists
-    .map((artist) => {
-      const stat = artistVotesMap.get(artist.id)
-      return {
-        id: artist.id,
-        stageName: artist.stageName,
-        slug: artist.slug,
-        profileImage: artist.profileImage,
-        coverImage: artist.coverImage,
-        categories: artist.categories.map((ac) => ({
-          id: ac.category.id,
-          name: ac.category.name,
-          slug: ac.category.slug,
-        })),
-        totalPoints: stat?.totalPoints || 0,
-        totalVotes: stat?.totalVotes || 0,
-        totalVoters: stat?.voterIds.size || 0,
+    // Compute category artist count in memory (0 subquery overhead)
+    const categoryArtistCountMap = new Map<string, number>()
+    for (const artist of approvedArtists) {
+      for (const ac of artist.categories) {
+        categoryArtistCountMap.set(ac.category.id, (categoryArtistCountMap.get(ac.category.id) || 0) + 1)
       }
-    })
-    .sort((a, b) => b.totalPoints - a.totalPoints)
+    }
 
-  return {
-    categories,
-    pointPackages,
-    competition,
-    topArtists: artistsWithStats.slice(0, 6),
-    totalArtistsCount: approvedArtists.length,
-    totalPointsDistributed: allVotes.reduce((sum, v) => sum + v.points, 0),
-  }
-}
+    const categoriesWithCount = categories.map((cat) => ({
+      ...cat,
+      _count: {
+        artists: categoryArtistCountMap.get(cat.id) || 0,
+      },
+    }))
+
+    // Aggregate real votes in memory
+    const artistVotesMap = new Map<string, { totalPoints: number; totalVotes: number; voterIds: Set<string> }>()
+    let totalPointsDistributed = 0
+
+    for (const v of allVotes) {
+      totalPointsDistributed += v.points
+      const stat = artistVotesMap.get(v.artistId) || { totalPoints: 0, totalVotes: 0, voterIds: new Set<string>() }
+      stat.totalPoints += v.points
+      stat.totalVotes += 1
+      stat.voterIds.add(v.userId)
+      artistVotesMap.set(v.artistId, stat)
+    }
+
+    const artistsWithStats = approvedArtists
+      .map((artist) => {
+        const stat = artistVotesMap.get(artist.id)
+        return {
+          id: artist.id,
+          stageName: artist.stageName,
+          slug: artist.slug,
+          profileImage: artist.profileImage,
+          coverImage: artist.coverImage,
+          categories: artist.categories.map((ac) => ({
+            id: ac.category.id,
+            name: ac.category.name,
+            slug: ac.category.slug,
+          })),
+          totalPoints: stat?.totalPoints || 0,
+          totalVotes: stat?.totalVotes || 0,
+          totalVoters: stat?.voterIds.size || 0,
+        }
+      })
+      .sort((a, b) => b.totalPoints - a.totalPoints)
+
+    return {
+      categories: categoriesWithCount,
+      pointPackages,
+      competition,
+      topArtists: artistsWithStats.slice(0, 6),
+      totalArtistsCount: approvedArtists.length,
+      totalPointsDistributed,
+    }
+  },
+  ['home-page-data-v1'],
+  { revalidate: 30, tags: ['home-data', 'rankings', 'votes'] }
+)
 
 export default async function HomePage() {
-  const session = await auth()
+  const [session, homeData] = await Promise.all([
+    auth(),
+    getHomeData(),
+  ])
+
   const {
     categories,
     pointPackages,
@@ -95,7 +134,7 @@ export default async function HomePage() {
     topArtists,
     totalArtistsCount,
     totalPointsDistributed,
-  } = await getHomeData()
+  } = homeData
 
   const user = session?.user ? { name: session.user.name!, role: (session.user as any).role } : null
 

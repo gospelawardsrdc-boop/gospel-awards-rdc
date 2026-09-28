@@ -13,6 +13,12 @@ interface Props {
 
 const getPublicCategoryDetail = unstable_cache(
   async (slug: string) => {
+    const activeCompetition = await prisma.competition.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    })
+
     const category = await prisma.category.findUnique({
       where: { slug },
       include: {
@@ -35,14 +41,19 @@ const getPublicCategoryDetail = unstable_cache(
 
     if (!category) return null
 
-    const votes = await prisma.vote.findMany({
-      where: { categoryId: category.id },
-      select: {
-        artistId: true,
-        points: true,
-        userId: true,
-      },
-    })
+    const votes = activeCompetition
+      ? await prisma.vote.findMany({
+          where: {
+            categoryId: category.id,
+            competitionId: activeCompetition.id,
+          },
+          select: {
+            artistId: true,
+            points: true,
+            userId: true,
+          },
+        })
+      : []
 
     const artistStatsMap = new Map<string, { totalPoints: number; totalVotes: number; voterIds: Set<string> }>()
     for (const v of votes) {
@@ -76,8 +87,8 @@ const getPublicCategoryDetail = unstable_cache(
       artistsWithStats,
     }
   },
-  ['public-category-detail-data-v1'],
-  { revalidate: 30, tags: ['categories', 'votes'] }
+  ['public-category-detail-data-v2'],
+  { revalidate: 30, tags: ['categories', 'votes', 'edition', 'competition'] }
 )
 
 export default async function CategoryPage({ params }: Props) {

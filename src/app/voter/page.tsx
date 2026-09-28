@@ -12,6 +12,12 @@ interface Props {
 
 const getPublicVoterData = unstable_cache(
   async () => {
+    const activeCompetition = await prisma.competition.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    })
+
     const [categories, categoryVotes, pointPackages] = await Promise.all([
       prisma.category.findMany({
         where: { isActive: true },
@@ -36,10 +42,13 @@ const getPublicVoterData = unstable_cache(
           },
         },
       }),
-      prisma.vote.groupBy({
-        by: ['categoryId', 'artistId'],
-        _sum: { points: true },
-      }),
+      activeCompetition
+        ? prisma.vote.groupBy({
+            by: ['categoryId', 'artistId'],
+            where: { competitionId: activeCompetition.id },
+            _sum: { points: true },
+          })
+        : Promise.resolve([]),
       prisma.pointPackage.findMany({
         where: { isActive: true },
         orderBy: { orderIndex: 'asc' },
@@ -69,8 +78,8 @@ const getPublicVoterData = unstable_cache(
 
     return { formattedCategories, pointPackages }
   },
-  ['public-voter-structure-v1'],
-  { revalidate: 30, tags: ['categories', 'artists', 'votes'] }
+  ['public-voter-structure-v2'],
+  { revalidate: 30, tags: ['categories', 'artists', 'votes', 'edition', 'competition'] }
 )
 
 export default async function VoterPage({ searchParams }: Props) {

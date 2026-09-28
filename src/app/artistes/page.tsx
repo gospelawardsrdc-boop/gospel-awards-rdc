@@ -7,6 +7,12 @@ import ArtistesClient from './ArtistesClient'
 
 const getPublicArtistsData = unstable_cache(
   async () => {
+    const activeCompetition = await prisma.competition.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    })
+
     const [categories, approvedArtists, allVotes] = await Promise.all([
       prisma.category.findMany({
         where: { isActive: true },
@@ -40,11 +46,14 @@ const getPublicArtistsData = unstable_cache(
           },
         },
       }),
-      prisma.vote.groupBy({
-        by: ['artistId'],
-        _sum: { points: true },
-        _count: { _all: true },
-      }),
+      activeCompetition
+        ? prisma.vote.groupBy({
+            by: ['artistId'],
+            where: { competitionId: activeCompetition.id },
+            _sum: { points: true },
+            _count: { _all: true },
+          })
+        : Promise.resolve([]),
     ])
 
     // Aggregate points and votes in memory
@@ -82,8 +91,8 @@ const getPublicArtistsData = unstable_cache(
       categories,
     }
   },
-  ['public-artists-catalog-data-v1'],
-  { revalidate: 30, tags: ['artists', 'votes'] }
+  ['public-artists-catalog-data-v2'],
+  { revalidate: 30, tags: ['artists', 'votes', 'edition', 'competition'] }
 )
 
 export default async function ArtistesPage() {

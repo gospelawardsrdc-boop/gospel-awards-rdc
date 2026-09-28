@@ -7,6 +7,22 @@ import ClassementsClient from './ClassementsClient'
 
 const getLiveRankings = unstable_cache(
   async () => {
+    // 1. Récupération de l'édition active (ou la plus récente si aucune active)
+    const activeCompetition = await prisma.competition.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        year: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        isActive: true,
+      },
+    })
+
+    // 2. Récupération parallèle des catégories et des votes strictement filtrés sur l'édition active
     const [categories, allVotes] = await Promise.all([
       prisma.category.findMany({
         where: { isActive: true },
@@ -32,11 +48,14 @@ const getLiveRankings = unstable_cache(
           },
         },
       }),
-      prisma.vote.groupBy({
-        by: ['categoryId', 'artistId'],
-        _sum: { points: true },
-        _count: { _all: true },
-      }),
+      activeCompetition
+        ? prisma.vote.groupBy({
+            by: ['categoryId', 'artistId'],
+            where: { competitionId: activeCompetition.id },
+            _sum: { points: true },
+            _count: { _all: true },
+          })
+        : Promise.resolve([]),
     ])
 
     // Aggregate points and votes in-memory: (categoryId:artistId) => { totalPoints, totalVotes }
@@ -49,7 +68,7 @@ const getLiveRankings = unstable_cache(
       })
     }
 
-    return categories.map((category) => {
+    const formattedRankings = categories.map((category) => {
       const ranked = category.artists
         .map((ac) => {
           const key = `${category.id}:${ac.artist.id}`
@@ -82,13 +101,25 @@ const getLiveRankings = unstable_cache(
         rankings: ranked,
       }
     })
+
+    return {
+      rankings: formattedRankings,
+      competition: activeCompetition
+        ? {
+            id: activeCompetition.id,
+            name: activeCompetition.name,
+            year: activeCompetition.year,
+            status: activeCompetition.status,
+          }
+        : null,
+    }
   },
-  ['live-rankings-data-v1'],
-  { revalidate: 15, tags: ['rankings', 'votes'] }
+  ['live-rankings-data-v2'],
+  { revalidate: 15, tags: ['rankings', 'votes', 'edition', 'competition'] }
 )
 
 export default async function ClassementsPage() {
-  const [session, rankings] = await Promise.all([
+  const [session, data] = await Promise.all([
     auth(),
     getLiveRankings(),
   ])
@@ -111,7 +142,8 @@ export default async function ClassementsPage() {
       <main className="pt-28 lg:pt-36 pb-24 lg:pb-20 px-4 flex-1">
         <div className="max-w-6xl mx-auto">
           <ClassementsClient
-            rankings={rankings}
+            rankings={data.rankings}
+            competition={data.competition}
             currentArtistId={currentArtistId}
           />
         </div>

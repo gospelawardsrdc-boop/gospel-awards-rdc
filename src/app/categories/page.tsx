@@ -7,6 +7,14 @@ import CategoriesClient from './CategoriesClient'
 
 const getCategoriesData = unstable_cache(
   async () => {
+    const activeCompetition = await prisma.competition.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+      },
+    })
+
     const [categories, approvedArtists, allVotes] = await Promise.all([
       prisma.category.findMany({
         where: { isActive: true },
@@ -36,11 +44,14 @@ const getCategoriesData = unstable_cache(
         where: { isActive: true, isApproved: true },
         select: { id: true },
       }),
-      prisma.vote.groupBy({
-        by: ['categoryId', 'artistId'],
-        _sum: { points: true },
-        _count: { _all: true },
-      }),
+      activeCompetition
+        ? prisma.vote.groupBy({
+            by: ['categoryId', 'artistId'],
+            where: { competitionId: activeCompetition.id },
+            _sum: { points: true },
+            _count: { _all: true },
+          })
+        : Promise.resolve([]),
     ])
 
     // Map categoryId:artistId => totalPoints
@@ -64,6 +75,7 @@ const getCategoriesData = unstable_cache(
           artist: ca.artist,
           points: catArtistPointsMap.get(`${cat.id}:${ca.artist.id}`) || 0,
         }))
+        .filter((a) => a.points > 0)
         .sort((a, b) => b.points - a.points)
 
       const leader = artistListWithScores[0] || null
@@ -94,8 +106,8 @@ const getCategoriesData = unstable_cache(
       totalArtistsCount: approvedArtists.length,
     }
   },
-  ['public-categories-list-data-v1'],
-  { revalidate: 30, tags: ['categories', 'votes'] }
+  ['public-categories-list-data-v2'],
+  { revalidate: 30, tags: ['categories', 'votes', 'edition', 'competition'] }
 )
 
 export default async function CategoriesPage() {

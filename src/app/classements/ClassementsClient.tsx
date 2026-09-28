@@ -31,14 +31,22 @@ interface CategoryWithRankings {
 
 interface Props {
   rankings: CategoryWithRankings[]
+  competition?: {
+    id: string
+    name: string
+    year: number | null
+    status: string | null
+  } | null
   currentArtistId?: string | null
 }
 
-export default function ClassementsClient({ rankings, currentArtistId }: Props) {
+export default function ClassementsClient({ rankings, competition, currentArtistId }: Props) {
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>(
     rankings[0]?.category.slug || 'all'
   )
   const [searchQuery, setSearchQuery] = useState('')
+
+  const editionName = competition?.name || 'Gospel Awards RDC'
 
   // Compute global statistics
   const totalArtists = useMemo(() => {
@@ -82,7 +90,7 @@ export default function ClassementsClient({ rankings, currentArtistId }: Props) 
       <div className="text-center relative max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold/10 border border-gold/30 text-gold text-xs font-bold uppercase tracking-[0.2em] mb-4 shadow-sm">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          En direct · Vote Officiel 2026
+          En direct · {editionName}
         </div>
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight">
           Classements <span className="gold-text">Gospel Awards</span>

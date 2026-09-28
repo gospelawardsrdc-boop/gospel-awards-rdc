@@ -9,7 +9,11 @@ import { formatPoints, formatCurrency, getRankEmoji } from '@/lib/utils'
 
 const getHomeData = unstable_cache(
   async () => {
-    const [categories, pointPackages, competition, approvedArtists, allVotes, totalPointsAgg] = await Promise.all([
+    const activeCompetition = await prisma.competition.findFirst({
+      where: { isActive: true },
+    })
+
+    const [categories, pointPackages, approvedArtists, allVotes, totalPointsAgg] = await Promise.all([
       prisma.category.findMany({
         where: { isActive: true },
         orderBy: { orderIndex: 'asc' },
@@ -25,9 +29,6 @@ const getHomeData = unstable_cache(
       prisma.pointPackage.findMany({
         where: { isActive: true },
         orderBy: { orderIndex: 'asc' },
-      }),
-      prisma.competition.findFirst({
-        where: { isActive: true },
       }),
       prisma.artist.findMany({
         where: { isActive: true, isApproved: true },
@@ -50,14 +51,20 @@ const getHomeData = unstable_cache(
           },
         },
       }),
-      prisma.vote.groupBy({
-        by: ['artistId'],
-        _sum: { points: true },
-        _count: { _all: true },
-      }),
-      prisma.vote.aggregate({
-        _sum: { points: true },
-      }),
+      activeCompetition
+        ? prisma.vote.groupBy({
+            by: ['artistId'],
+            where: { competitionId: activeCompetition.id },
+            _sum: { points: true },
+            _count: { _all: true },
+          })
+        : [],
+      activeCompetition
+        ? prisma.vote.aggregate({
+            where: { competitionId: activeCompetition.id },
+            _sum: { points: true },
+          })
+        : { _sum: { points: 0 } },
     ])
 
     // Compute category artist count in memory (0 subquery overhead)
@@ -109,7 +116,7 @@ const getHomeData = unstable_cache(
     return {
       categories: categoriesWithCount,
       pointPackages,
-      competition,
+      competition: activeCompetition,
       topArtists: artistsWithStats.slice(0, 6),
       totalArtistsCount: approvedArtists.length,
       totalPointsDistributed,

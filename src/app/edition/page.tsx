@@ -10,6 +10,13 @@ export async function generateMetadata(): Promise<Metadata> {
   const competition = await prisma.competition.findFirst({
     where: { isActive: true },
     orderBy: { createdAt: 'desc' },
+    select: {
+      name: true,
+      year: true,
+      theme: true,
+      description: true,
+      bannerImage: true,
+    },
   })
 
   if (!competition) {
@@ -38,19 +45,34 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const getEditionData = unstable_cache(
   async () => {
-    // 1. Récupération de l'édition active (ou la plus récente)
+    // 1. Récupération optimisée de l'édition active (ou la plus récente)
+    const selectCompetitionFields = {
+      id: true,
+      name: true,
+      year: true,
+      theme: true,
+      description: true,
+      bannerImage: true,
+      status: true,
+      startDate: true,
+      endDate: true,
+      isActive: true,
+    }
+
     let competition = await prisma.competition.findFirst({
       where: { isActive: true },
       orderBy: { createdAt: 'desc' },
+      select: selectCompetitionFields,
     })
 
     if (!competition) {
       competition = await prisma.competition.findFirst({
         orderBy: { createdAt: 'desc' },
+        select: selectCompetitionFields,
       })
     }
 
-    // 2. Récupération parallèle des catégories, artistes et votes
+    // 2. Récupération parallèle optimisée des catégories, artistes et agrégats de votes
     const [categories, approvedArtists, categoryVotes, totalEditionVotesAgg, uniqueVotersAgg] = await Promise.all([
       prisma.category.findMany({
         where: { isActive: true },
@@ -98,13 +120,12 @@ const getEditionData = unstable_cache(
           },
         },
       }),
-      // Filtrer les votes par competitionId si une compétition existe
+      // Agrégat des points par catégorie et par artiste pour l'édition courante
       competition
         ? prisma.vote.groupBy({
             by: ['categoryId', 'artistId'],
             where: { competitionId: competition.id },
             _sum: { points: true },
-            _count: { _all: true },
           })
         : Promise.resolve([]),
       competition

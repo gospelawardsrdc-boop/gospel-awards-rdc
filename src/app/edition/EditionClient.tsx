@@ -5,6 +5,40 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { formatPoints, formatDate, getRankEmoji } from '@/lib/utils'
 
+function formatKinshasaDate(dateStr: string): string {
+  if (!dateStr) return '—'
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return '—'
+    return new Intl.DateTimeFormat('fr-FR', {
+      timeZone: 'Africa/Kinshasa',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d)
+  } catch {
+    return '—'
+  }
+}
+
+function formatKinshasaDateTime(dateStr: string): string {
+  if (!dateStr) return '—'
+  try {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return '—'
+    return new Intl.DateTimeFormat('fr-FR', {
+      timeZone: 'Africa/Kinshasa',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d)
+  } catch {
+    return '—'
+  }
+}
+
 export interface EditionCompetition {
   id: string
   name: string
@@ -330,13 +364,21 @@ export default function EditionClient({
               </p>
             )}
 
-            {/* Dates range */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs sm:text-sm text-gray-300 font-medium">
-              <span>📅</span>
-              <span>
-                Du <strong className="text-white">{formatDate(competition.startDate)}</strong> au{' '}
-                <strong className="text-white">{formatDate(competition.endDate)}</strong>
-              </span>
+            {/* Dates range & Heure exacte de clôture (Fuseau Kinshasa) */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-xs sm:text-sm text-gray-300 font-medium">
+                <span>📅</span>
+                <span>
+                  Du <strong className="text-white">{formatKinshasaDate(competition.startDate)}</strong> au{' '}
+                  <strong className="text-white">{formatKinshasaDate(competition.endDate)}</strong>
+                </span>
+              </div>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gold/10 border border-gold/30 text-xs sm:text-sm text-gold font-medium">
+                <span>⏰</span>
+                <span>
+                  Clôture : <strong className="text-white">{formatKinshasaDateTime(competition.endDate)}</strong> (Heure de Kinshasa)
+                </span>
+              </div>
             </div>
 
             {/* Editorial Description */}
@@ -551,32 +593,52 @@ export default function EditionClient({
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               {artists.map((artist) => (
-                <Link
+                <div
                   key={artist.id}
-                  href={`/artistes/${artist.slug}`}
-                  className="premium-card p-4 border-white/[0.06] hover:border-gold/40 hover:scale-[1.02] transition-all group flex flex-col items-center text-center"
+                  className="premium-card p-4 border-white/[0.06] hover:border-gold/30 transition-all flex flex-col items-center text-center justify-between group"
                 >
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden relative border-2 border-gold/20 group-hover:border-gold transition-colors mb-3 bg-zinc-900">
-                    {artist.profileImage ? (
-                      <Image
-                        src={artist.profileImage}
-                        alt={artist.stageName}
-                        fill
-                        sizes="96px"
-                        className="object-cover"
-                        unoptimized={artist.profileImage.includes('supabase.co')}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-2xl">🎤</div>
-                    )}
+                  <Link
+                    href={`/artistes/${artist.slug}`}
+                    className="flex flex-col items-center text-center w-full group/artist"
+                  >
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden relative border-2 border-gold/20 group-hover/artist:border-gold transition-colors mb-3 bg-zinc-900">
+                      {artist.profileImage ? (
+                        <Image
+                          src={artist.profileImage}
+                          alt={artist.stageName}
+                          fill
+                          sizes="96px"
+                          className="object-cover"
+                          unoptimized={artist.profileImage.includes('supabase.co')}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl">🎤</div>
+                      )}
+                    </div>
+                    <h3 className="text-xs sm:text-sm font-bold text-white group-hover/artist:text-gold transition-colors truncate w-full">
+                      {artist.stageName}
+                    </h3>
+                    <div className="text-[10px] text-gray-400 mt-1 line-clamp-1">
+                      {artist.categories.map((c) => c.name).join(', ')}
+                    </div>
+                  </Link>
+
+                  <div className="w-full mt-3 pt-2.5 border-t border-white/[0.04] flex flex-col gap-1.5">
+                    <Link
+                      href={`/voter?artist=${artist.id}`}
+                      className="w-full py-1.5 px-2.5 rounded-lg bg-gold/10 hover:bg-gold text-gold hover:text-[#060912] border border-gold/30 text-[11px] font-bold transition-all flex items-center justify-center gap-1 shadow-sm"
+                    >
+                      <span>🗳️</span>
+                      <span>Voter</span>
+                    </Link>
+                    <Link
+                      href={`/artistes/${artist.slug}`}
+                      className="text-[10px] text-gray-400 hover:text-white transition-colors"
+                    >
+                      Profil complet →
+                    </Link>
                   </div>
-                  <h3 className="text-xs sm:text-sm font-bold text-white group-hover:text-gold transition-colors truncate w-full">
-                    {artist.stageName}
-                  </h3>
-                  <div className="text-[10px] text-gray-400 mt-1 line-clamp-1">
-                    {artist.categories.map((c) => c.name).join(', ')}
-                  </div>
-                </Link>
+                </div>
               ))}
             </div>
           </section>

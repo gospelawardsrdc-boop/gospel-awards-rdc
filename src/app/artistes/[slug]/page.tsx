@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import Link from 'next/link'
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/lib/auth'
@@ -16,21 +17,63 @@ interface Props {
 
 const getPublicArtistProfile = unstable_cache(
   async (slug: string) => {
+    // 1. Récupération de l'édition active (avec isolation stricte)
+    const competition = await prisma.competition.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        year: true,
+        status: true,
+        startDate: true,
+        endDate: true,
+        isActive: true,
+      },
+    })
+
+    // 2. Récupération de l'artiste avec ses relations et filtrage des votes sur l'édition active
     const artist = await prisma.artist.findUnique({
       where: { slug },
       include: {
-        categories: { include: { category: true } },
+        categories: {
+          include: {
+            category: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                icon: true,
+              },
+            },
+          },
+        },
         socialLinks: true,
         musicLinks: true,
         videoLinks: true,
-        votes: {
-          select: {
-            id: true,
-            points: true,
-            userId: true,
-            createdAt: true,
-          },
-        },
+        ...(competition
+          ? {
+              votes: {
+                where: { competitionId: competition.id },
+                select: {
+                  id: true,
+                  points: true,
+                  userId: true,
+                  createdAt: true,
+                },
+              },
+            }
+          : {
+              votes: {
+                where: { id: 'no-votes-placeholder' },
+                select: {
+                  id: true,
+                  points: true,
+                  userId: true,
+                  createdAt: true,
+                },
+              },
+            }),
       },
     })
 
@@ -40,7 +83,7 @@ const getPublicArtistProfile = unstable_cache(
     const totalVotes = artist.votes.length
     const uniqueVoters = new Set(artist.votes.map((v) => v.userId)).size
 
-    // Calcul du classement en temps réel par catégorie
+    // 3. Calcul du classement en temps réel par catégorie strictement filtré sur l'édition active
     const categoryRanks = await Promise.all(
       artist.categories.map(async (ac) => {
         const [catCompetitors, rankings] = await Promise.all([
@@ -50,12 +93,17 @@ const getPublicArtistProfile = unstable_cache(
               artist: { isActive: true, isApproved: true },
             },
           }),
-          prisma.vote.groupBy({
-            by: ['artistId'],
-            where: { categoryId: ac.categoryId },
-            _sum: { points: true },
-            orderBy: { _sum: { points: 'desc' } },
-          }),
+          competition
+            ? prisma.vote.groupBy({
+                by: ['artistId'],
+                where: {
+                  categoryId: ac.categoryId,
+                  competitionId: competition.id,
+                },
+                _sum: { points: true },
+                orderBy: { _sum: { points: 'desc' } },
+              })
+            : Promise.resolve([]),
         ])
 
         const rankIndex = rankings.findIndex((r) => r.artistId === artist.id)
@@ -69,16 +117,98 @@ const getPublicArtistProfile = unstable_cache(
       })
     )
 
+    // 4. Détermination de l'état de vote
+    const now = new Date()
+    let votingState: {
+      canVote: boolean
+      buttonLabel: string
+      statusMessage: string
+      subMessage: string
+      status: string
+    }
+
+    if (!competition) {
+      votingState = {
+        canVote: false,
+        buttonLabel: 'Aucune édition de vote disponible',
+        statusMessage: 'Aucune édition de vote disponible',
+        subMessage: 'Aucune compétition n\'est actuellement ouverte aux votes.',
+        status: 'NONE',
+      }
+    } else if (competition.status === 'DRAFT') {
+      votingState = {
+        canVote: false,
+        buttonLabel: 'Votes non ouverts',
+        statusMessage: 'Votes non ouverts',
+        subMessage: 'Cette édition est en cours de préparation.',
+        status: 'DRAFT',
+      }
+    } else if (competition.status === 'UPCOMING' || now < competition.startDate) {
+      votingState = {
+        canVote: false,
+        buttonLabel: 'Votes bientôt ouverts',
+        statusMessage: 'Votes bientôt ouverts',
+        subMessage: 'L\'ouverture des votes est prévue prochainement.',
+        status: 'UPCOMING',
+      }
+    } else if (competition.status === 'CLOSED' || now > competition.endDate) {
+      votingState = {
+        canVote: false,
+        buttonLabel: 'Période de vote clôturée',
+        statusMessage: 'Période de vote clôturée',
+        subMessage: 'Les votes pour cette édition sont officiellement terminés.',
+        status: 'CLOSED',
+      }
+    } else if (competition.status === 'GALA') {
+      votingState = {
+        canVote: false,
+        buttonLabel: 'Cérémonie en cours',
+        statusMessage: 'Cérémonie en cours',
+        subMessage: 'La cérémonie de remise des prix est en cours.',
+        status: 'GALA',
+      }
+    } else if (
+      competition.status === 'ACTIVE' &&
+      competition.isActive &&
+      now >= competition.startDate &&
+      now <= competition.endDate
+    ) {
+      votingState = {
+        canVote: true,
+        buttonLabel: 'VOTER POUR CET ARTISTE',
+        statusMessage: 'Voter pour cet artiste',
+        subMessage: 'Soutenez son parcours vers la victoire 🏆',
+        status: 'ACTIVE',
+      }
+    } else {
+      votingState = {
+        canVote: false,
+        buttonLabel: 'Votes non disponibles',
+        statusMessage: 'Votes non disponibles',
+        subMessage: 'Les votes ne sont pas ouverts actuellement.',
+        status: competition.status || 'INACTIVE',
+      }
+    }
+
     return {
       artist,
+      competition: competition
+        ? {
+            id: competition.id,
+            name: competition.name,
+            year: competition.year,
+            status: competition.status,
+          }
+        : null,
       totalPoints,
       totalVotes,
       uniqueVoters,
       categoryRanks,
+      votingState,
     }
   },
-  ['public-artist-profile-v1'],
-  { revalidate: 30, tags: ['artists', 'votes'] }
+  ['public-artist-profile-v2'],
+  { revalidate: 30, tags: ['artists', 'votes', 'edition', 'competition'] }
 )
 
 export default async function ArtistPage({ params }: Props) {
@@ -90,7 +220,7 @@ export default async function ArtistPage({ params }: Props) {
 
   if (!profileData) notFound()
 
-  const { artist, totalPoints, totalVotes, uniqueVoters, categoryRanks } = profileData
+  const { artist, competition, totalPoints, totalVotes, uniqueVoters, categoryRanks, votingState } = profileData
   const user = session?.user ? { name: session.user.name!, role: (session.user as any).role } : null
 
   const socialIcons: Record<string, { icon: string; label: string; bgClass: string }> = {
@@ -107,6 +237,9 @@ export default async function ArtistPage({ params }: Props) {
   const currentUserId = (session?.user as any)?.id
   const isSelf = Boolean(currentUserId && currentUserId === artist.userId)
 
+  const editionName = competition?.name || 'Gospel Awards RDC'
+  const editionYear = competition?.year || new Date().getFullYear()
+
   return (
     <div className="min-h-screen bg-[#060912] text-white selection:bg-gold/20 selection:text-gold flex flex-col justify-between">
       <Header user={user} />
@@ -115,10 +248,14 @@ export default async function ArtistPage({ params }: Props) {
         {/* ===== HERO / COVER BANNER ===== */}
         <section className="relative w-full h-64 sm:h-80 md:h-96 lg:h-[420px] overflow-hidden bg-[#0A0E1A]">
           {artist.coverImage ? (
-            <img
+            <Image
               src={artist.coverImage}
               alt={`Couverture officielle de ${artist.stageName}`}
-              className="w-full h-full object-cover object-center"
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-center"
+              unoptimized={artist.coverImage.includes('supabase.co')}
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-[#0c1222] via-[#11192e] to-[#070b14] relative flex items-center justify-center">
@@ -127,7 +264,7 @@ export default async function ArtistPage({ params }: Props) {
               <div className="text-center px-4 relative z-10">
                 <span className="text-5xl sm:text-6xl opacity-20 block mb-2">🎤</span>
                 <span className="text-xs uppercase tracking-[0.3em] text-gold/40 font-bold">
-                  Gospel Awards RDC · Édition 2026
+                  {editionName}
                 </span>
               </div>
             </div>
@@ -142,8 +279,12 @@ export default async function ArtistPage({ params }: Props) {
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-[11px] font-semibold text-gray-300">
               <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
               <span className="tracking-wider uppercase text-gold">Profil Officiel Nommé</span>
-              <span className="text-gray-500">•</span>
-              <span>2026</span>
+              {competition && (
+                <>
+                  <span className="text-gray-500">•</span>
+                  <span>{competition.name}</span>
+                </>
+              )}
             </div>
           </div>
         </section>
@@ -157,12 +298,15 @@ export default async function ArtistPage({ params }: Props) {
               
               {/* Photo de profil de l'artiste */}
               <div className="relative group flex-shrink-0">
-                <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44 rounded-3xl overflow-hidden bg-surface border-2 border-gold/40 shadow-2xl ring-4 ring-[#060912] flex items-center justify-center">
+                <div className="w-32 h-32 sm:w-40 sm:h-40 md:w-44 md:h-44 rounded-3xl overflow-hidden bg-surface border-2 border-gold/40 shadow-2xl ring-4 ring-[#060912] flex items-center justify-center relative">
                   {artist.profileImage ? (
-                    <img
+                    <Image
                       src={artist.profileImage}
                       alt={artist.stageName}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      fill
+                      sizes="(max-width: 640px) 128px, (max-width: 768px) 160px, 176px"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      unoptimized={artist.profileImage.includes('supabase.co')}
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-surface-light text-gray-400">
@@ -174,7 +318,7 @@ export default async function ArtistPage({ params }: Props) {
                 {/* Badge statut vérifié */}
                 <div
                   title="Candidat officiel validé"
-                  className="absolute -bottom-2 -right-2 bg-[#060912] p-1 rounded-2xl border border-gold/40 shadow-lg"
+                  className="absolute -bottom-2 -right-2 bg-[#060912] p-1 rounded-2xl border border-gold/40 shadow-lg z-10"
                 >
                   <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gold flex items-center justify-center text-[#0A0E1A] font-black text-sm sm:text-base">
                     ✓
@@ -219,21 +363,7 @@ export default async function ArtistPage({ params }: Props) {
 
               {/* BOUTON D'ACTION DE VOTE (CTA PRINCIPAL) */}
               <div className="w-full md:w-auto flex flex-col items-center md:items-end justify-center pt-2 md:pt-0">
-                {!isSelf ? (
-                  <div id="main-vote-cta" className="w-full sm:w-auto flex flex-col items-center gap-2">
-                    <Link
-                      href={`/voter?artist=${artist.id}`}
-                      prefetch={true}
-                      className="w-full sm:w-auto btn-primary text-sm sm:text-base !py-4 !px-8 sm:!px-10 font-black tracking-wide shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all text-center flex items-center justify-center gap-3 gold-gradient text-[#0A0E1A]"
-                    >
-                      <span className="text-lg">⭐</span>
-                      <span>VOTER POUR CET ARTISTE</span>
-                    </Link>
-                    <span className="text-[11px] text-gray-400 text-center">
-                      Soutenez son parcours vers la victoire 🏆
-                    </span>
-                  </div>
-                ) : (
+                {isSelf ? (
                   <div className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-gold/[0.08] border border-gold/30 text-gold text-xs sm:text-sm font-bold flex flex-col items-center text-center gap-1">
                     <span className="flex items-center gap-1.5">
                       <span>👤</span>
@@ -243,13 +373,42 @@ export default async function ArtistPage({ params }: Props) {
                       Auto-vote restreint conformément au règlement officiel.
                     </span>
                   </div>
+                ) : votingState.canVote ? (
+                  <div id="main-vote-cta" className="w-full sm:w-auto flex flex-col items-center gap-2">
+                    <Link
+                      href={`/voter?artist=${artist.id}`}
+                      prefetch={true}
+                      className="w-full sm:w-auto btn-primary text-sm sm:text-base !py-4 !px-8 sm:!px-10 font-black tracking-wide shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all text-center flex items-center justify-center gap-3 gold-gradient text-[#0A0E1A]"
+                    >
+                      <span className="text-lg">⭐</span>
+                      <span>{votingState.buttonLabel}</span>
+                    </Link>
+                    <span className="text-[11px] text-gray-400 text-center">
+                      {votingState.subMessage}
+                    </span>
+                  </div>
+                ) : (
+                  <div id="main-vote-cta" className="w-full sm:w-auto flex flex-col items-center gap-2">
+                    <div className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-white/[0.04] border border-white/[0.1] text-gray-300 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-not-allowed">
+                      <span>🔒</span>
+                      <span>{votingState.buttonLabel}</span>
+                    </div>
+                    <span className="text-[11px] text-gray-400 text-center">
+                      {votingState.subMessage}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
           </div>
 
           {/* CAMPAGNE OFFICIELLE & PARTAGE SOCIAL */}
-          <ArtistShareButtons artistName={artist.stageName} artistSlug={artist.slug} />
+          <ArtistShareButtons
+            artistName={artist.stageName}
+            artistSlug={artist.slug}
+            competitionName={editionName}
+            competitionYear={editionYear}
+          />
 
           {/* BARRE DE STATISTIQUES & IMPACT DES VOTES */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -374,7 +533,7 @@ export default async function ArtistPage({ params }: Props) {
                         Voir tout le classement →
                       </Link>
 
-                      {!isSelf && (
+                      {!isSelf && votingState.canVote && (
                         <Link
                           href={`/voter?artist=${artist.id}&category=${category.id}`}
                           className="btn-secondary !text-xs !py-1.5 !px-3.5 font-bold hover:border-gold/40 text-gold flex items-center gap-1.5"
@@ -580,6 +739,8 @@ export default async function ArtistPage({ params }: Props) {
         artistId={artist.id}
         artistName={artist.stageName}
         isSelf={isSelf}
+        canVote={votingState.canVote}
+        editionName={editionName}
         targetElementId="main-vote-cta"
       />
 

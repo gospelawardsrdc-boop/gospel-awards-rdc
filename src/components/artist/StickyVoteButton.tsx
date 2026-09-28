@@ -7,6 +7,8 @@ interface Props {
   artistId: string
   artistName: string
   isSelf: boolean
+  canVote?: boolean
+  editionName?: string
   targetElementId?: string
 }
 
@@ -14,13 +16,15 @@ export default function StickyVoteButton({
   artistId,
   artistName,
   isSelf,
+  canVote = true,
+  editionName,
   targetElementId = 'main-vote-cta',
 }: Props) {
   const [isVisible, setIsVisible] = useState(false)
 
   useEffect(() => {
-    // Si l'utilisateur est le candidat lui-même, aucun sticky n'est actif
-    if (isSelf) return
+    // Si l'utilisateur est le candidat lui-même ou si le vote n'est pas ouvert, aucun sticky n'est actif
+    if (isSelf || !canVote) return
 
     const target = document.getElementById(targetElementId)
     if (!target) return
@@ -39,10 +43,10 @@ export default function StickyVoteButton({
 
     observer.observe(target)
     return () => observer.disconnect()
-  }, [isSelf, targetElementId])
+  }, [isSelf, canVote, targetElementId])
 
-  // Règle de sécurité : aucun rendu si auto-vote
-  if (isSelf) return null
+  // Règle de sécurité et état de vote : aucun rendu si auto-vote ou vote fermé
+  if (isSelf || !canVote) return null
 
   return (
     <div
@@ -56,7 +60,7 @@ export default function StickyVoteButton({
       <div className="max-w-md mx-auto flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <span className="text-[10px] uppercase font-bold text-gold tracking-wider block truncate">
-            Gospel Awards RDC 2026
+            {editionName || 'Gospel Awards RDC'}
           </span>
           <h4 className="text-sm font-black text-white truncate">
             {artistName}

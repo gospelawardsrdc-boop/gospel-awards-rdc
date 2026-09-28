@@ -5,12 +5,22 @@ import { useState, useEffect } from 'react'
 interface Props {
   artistName: string
   artistSlug: string
+  competitionName?: string
+  competitionYear?: number | string
 }
 
-export default function ArtistShareButtons({ artistName, artistSlug }: Props) {
+export default function ArtistShareButtons({
+  artistName,
+  artistSlug,
+  competitionName,
+  competitionYear,
+}: Props) {
   const [copied, setCopied] = useState(false)
   const [hasNativeShare, setHasNativeShare] = useState(false)
   const [currentUrl, setCurrentUrl] = useState('')
+
+  const compName = competitionName || 'Gospel Awards RDC'
+  const compYear = competitionYear || new Date().getFullYear()
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -20,7 +30,7 @@ export default function ArtistShareButtons({ artistName, artistSlug }: Props) {
     }
   }, [artistSlug])
 
-  const shareText = `🏆 Soutenez ${artistName} aux Gospel Awards RDC 2026 ! Votez ici : ${currentUrl}`
+  const shareText = `🏆 Soutenez ${artistName} aux ${compName} ! Votez ici : ${currentUrl}`
 
   const handleCopyLink = async () => {
     try {
@@ -48,8 +58,8 @@ export default function ArtistShareButtons({ artistName, artistSlug }: Props) {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Gospel Awards RDC — ${artistName}`,
-          text: `🏆 Soutenez ${artistName} aux Gospel Awards RDC 2026 ! Votez pour lui/elle sur le site officiel :`,
+          title: `${compName} — ${artistName}`,
+          text: `🏆 Soutenez ${artistName} aux ${compName} ! Votez pour lui/elle sur le site officiel :`,
           url: currentUrl,
         })
       } catch (err) {
@@ -76,7 +86,7 @@ export default function ArtistShareButtons({ artistName, artistSlug }: Props) {
               Mobilisez vos fans · Partage Officiel
             </h3>
             <span className="text-[10px] bg-gold/10 text-gold font-bold px-2 py-0.5 rounded-full border border-gold/20 hidden sm:inline">
-              Campagne 2026
+              {competitionName || `Campagne ${compYear}`}
             </span>
           </div>
           <p className="text-xs text-gray-400 max-w-xl leading-relaxed">

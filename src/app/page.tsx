@@ -7,6 +7,109 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import { formatPoints, formatCurrency, getRankEmoji } from '@/lib/utils'
 
+function formatKinshasaDateTime(dateVal: Date | string | null): string {
+  if (!dateVal) return ''
+  try {
+    const d = new Date(dateVal)
+    if (isNaN(d.getTime())) return ''
+    return new Intl.DateTimeFormat('fr-FR', {
+      timeZone: 'Africa/Kinshasa',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d)
+  } catch {
+    return ''
+  }
+}
+
+function getCompetitionBadge(competition: {
+  name: string
+  status: string | null
+  startDate: Date | string | null
+  endDate: Date | string | null
+} | null) {
+  if (!competition) {
+    return {
+      text: 'Gospel Awards RDC · Prochaine Édition',
+      dotClass: 'bg-gold',
+      badgeClass: 'bg-gold/10 border-gold/30 text-gold',
+      pulse: false,
+    }
+  }
+
+  const now = new Date()
+  const start = competition.startDate ? new Date(competition.startDate) : null
+  const end = competition.endDate ? new Date(competition.endDate) : null
+
+  const isBeforeStart = start ? now < start : false
+  const isAfterEnd = end ? now > end : false
+
+  const rawStatus = (competition.status || '').toUpperCase()
+
+  if (rawStatus === 'GALA') {
+    return {
+      text: `${competition.name} · Cérémonie en cours`,
+      dotClass: 'bg-gold',
+      badgeClass: 'bg-gold/10 border-gold/30 text-gold',
+      pulse: true,
+    }
+  }
+
+  if (rawStatus === 'CLOSED' || isAfterEnd) {
+    return {
+      text: `${competition.name} · Votes Clôturés`,
+      dotClass: 'bg-amber-400',
+      badgeClass: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
+      pulse: false,
+    }
+  }
+
+  if (rawStatus === 'ACTIVE') {
+    if (isBeforeStart) {
+      return {
+        text: `${competition.name} · Ouverture Prochaine`,
+        dotClass: 'bg-blue-400',
+        badgeClass: 'bg-blue-500/10 border-blue-500/30 text-blue-300',
+        pulse: true,
+      }
+    }
+    return {
+      text: `${competition.name} · Vote Officiel Ouvert`,
+      dotClass: 'bg-emerald-400',
+      badgeClass: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+      pulse: true,
+    }
+  }
+
+  if (rawStatus === 'UPCOMING' || isBeforeStart) {
+    return {
+      text: `${competition.name} · Ouverture Prochaine`,
+      dotClass: 'bg-blue-400',
+      badgeClass: 'bg-blue-500/10 border-blue-500/30 text-blue-300',
+      pulse: true,
+    }
+  }
+
+  if (rawStatus === 'DRAFT') {
+    return {
+      text: `${competition.name} · Édition en préparation`,
+      dotClass: 'bg-gray-400',
+      badgeClass: 'bg-gray-500/10 border-gray-500/30 text-gray-300',
+      pulse: false,
+    }
+  }
+
+  return {
+    text: `${competition.name} · Édition Officielle`,
+    dotClass: 'bg-gold',
+    badgeClass: 'bg-gold/10 border-gold/30 text-gold',
+    pulse: false,
+  }
+}
+
 const getHomeData = unstable_cache(
   async () => {
     const activeCompetition = await prisma.competition.findFirst({
@@ -122,8 +225,8 @@ const getHomeData = unstable_cache(
       totalPointsDistributed,
     }
   },
-  ['home-page-data-v1'],
-  { revalidate: 30, tags: ['home-data', 'rankings', 'votes'] }
+  ['home-page-data-v2'],
+  { revalidate: 30, tags: ['home-data', 'rankings', 'votes', 'edition', 'competition'] }
 )
 
 export default async function HomePage() {
@@ -142,6 +245,7 @@ export default async function HomePage() {
   } = homeData
 
   const user = session?.user ? { name: session.user.name!, role: (session.user as any).role } : null
+  const badge = getCompetitionBadge(competition)
 
   return (
     <div className="min-h-screen bg-[#060912] flex flex-col justify-between">
@@ -171,10 +275,10 @@ export default async function HomePage() {
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-20 lg:pt-40 lg:pb-32 w-full">
             <div className="max-w-3xl">
               {/* Badge */}
-              <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-gold/10 border border-gold/30 mb-6 shadow-sm">
-                <span className="w-2.5 h-2.5 rounded-full bg-gold animate-pulse" />
-                <span className="text-gold text-xs font-bold tracking-[0.15em] uppercase">
-                  {competition?.name || 'Gospel Awards RDC 2026'} · Vote Officiel Ouvert
+              <div className={`inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full border mb-6 shadow-sm ${badge.badgeClass}`}>
+                <span className={`w-2.5 h-2.5 rounded-full ${badge.dotClass} ${badge.pulse ? 'animate-pulse' : ''}`} />
+                <span className="text-xs font-bold tracking-[0.15em] uppercase">
+                  {badge.text}
                 </span>
               </div>
 
@@ -188,12 +292,29 @@ export default async function HomePage() {
                 Célébrons les voix, les talents et les œuvres qui marquent la musique chrétienne en République démocratique du Congo.
               </p>
 
+              {/* Edition Dates Banner */}
+              {competition?.startDate && competition?.endDate ? (
+                <div className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-300 bg-white/[0.04] border border-white/[0.08] px-4 py-2 rounded-full mb-6 shadow-sm">
+                  <span className="text-gold">📅</span>
+                  <span>
+                    Votes du <strong className="text-white">{formatKinshasaDateTime(competition.startDate)}</strong> au <strong className="text-white">{formatKinshasaDateTime(competition.endDate)}</strong> — <span className="text-gray-400">Heure de Kinshasa</span>
+                  </span>
+                </div>
+              ) : competition?.endDate ? (
+                <div className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-300 bg-white/[0.04] border border-white/[0.08] px-4 py-2 rounded-full mb-6 shadow-sm">
+                  <span className="text-gold">📅</span>
+                  <span>
+                    Clôture des votes le <strong className="text-white">{formatKinshasaDateTime(competition.endDate)}</strong> — <span className="text-gray-400">Heure de Kinshasa</span>
+                  </span>
+                </div>
+              ) : null}
+
               <p className="text-xs sm:text-sm text-gray-400 leading-relaxed max-w-xl mb-10">
                 Soutenez vos artistes préférés grâce au système de vote certifié et propulsez-les vers le couronnement officiel.
               </p>
 
               {/* Primary CTAs */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4">
                 <Link
                   href="/voter"
                   className="btn-primary text-sm sm:text-base !py-4 !px-8 font-black tracking-wide shadow-xl animate-pulse-vote text-center"
@@ -208,9 +329,15 @@ export default async function HomePage() {
                 </Link>
                 <Link
                   href="/classements"
-                  className="px-6 py-4 rounded-full text-xs sm:text-sm font-semibold text-gray-400 hover:text-white transition-colors text-center"
+                  className="px-5 py-4 rounded-full text-xs sm:text-sm font-semibold text-gray-400 hover:text-white transition-colors text-center"
                 >
                   Voir les classements ↗
+                </Link>
+                <Link
+                  href="/edition"
+                  className="px-5 py-4 rounded-full text-xs sm:text-sm font-bold text-gold hover:text-white transition-colors text-center inline-flex items-center justify-center gap-1 hover:underline"
+                >
+                  Voir l&apos;édition officielle →
                 </Link>
               </div>
 
@@ -328,18 +455,20 @@ export default async function HomePage() {
                     {/* Header Cover */}
                     <div className="relative h-40 sm:h-44 bg-gradient-to-br from-surface-light to-surface overflow-hidden">
                       {artist.coverImage ? (
-                        <img
+                        <Image
                           src={artist.coverImage}
-                          alt=""
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                          alt={artist.stageName}
+                          fill
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          className="object-cover group-hover:scale-105 transition-transform duration-700"
                         />
                       ) : (
                         <div className="absolute inset-0 bg-gradient-to-br from-gold/[0.08] via-accent/[0.04] to-transparent" />
                       )}
-                      <div className="category-gradient absolute inset-0" />
+                      <div className="category-gradient absolute inset-0 pointer-events-none" />
 
                       {/* Rank badge */}
-                      <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/[0.1] text-xs font-black text-white flex items-center gap-1.5 shadow-lg">
+                      <div className="absolute top-3.5 left-3.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/[0.1] text-xs font-black text-white flex items-center gap-1.5 shadow-lg z-10">
                         <span>{getRankEmoji(index + 1)}</span>
                         <span>Rang #{index + 1}</span>
                       </div>
@@ -347,12 +476,14 @@ export default async function HomePage() {
 
                     {/* Card Body */}
                     <div className="p-5 -mt-10 relative">
-                      <div className="w-16 h-16 rounded-2xl bg-surface border-2 border-gold/30 overflow-hidden mb-4 ring-4 ring-[#060912] shadow-xl">
+                      <div className="relative w-16 h-16 rounded-2xl bg-surface border-2 border-gold/30 overflow-hidden mb-4 ring-4 ring-[#060912] shadow-xl">
                         {artist.profileImage ? (
-                          <img
+                          <Image
                             src={artist.profileImage}
                             alt={artist.stageName}
-                            className="w-full h-full object-cover"
+                            fill
+                            sizes="64px"
+                            className="object-cover"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-2xl bg-surface-light">🎤</div>

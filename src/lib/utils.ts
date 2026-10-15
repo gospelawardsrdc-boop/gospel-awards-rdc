@@ -87,3 +87,21 @@ export function getSafeRedirectUrl(url: unknown, defaultUrl: string = '/dashboar
   }
 }
 
+/**
+ * Normalise un nom de catégorie pour la comparaison et la détection des doublons :
+ * - Retire les espaces superflus
+ * - Convertit en minuscules
+ * - Supprime les accents et diacritiques (NFD)
+ * - Harmonise les apostrophes et tirets
+ * - Fusionne les espaces multiples
+ */
+export function normalizeCategoryName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['’`]/g, "'")
+    .replace(/\s+/g, ' ')
+}
+
